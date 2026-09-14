@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<labwc_config>
+  <theme>
+    <name>PureBlack</name>
+    <font name="Inter Variable" size="10"/>
+    <!-- Square SSD titlebar corners (default is 8px rounding). -->
+    <cornerRadius>0</cornerRadius>
+  </theme>
+  <desktops number="9">
+    <names>
+      <name>left top</name><name>top</name><name>right top</name>
+      <name>left</name><name>middle</name><name>right</name>
+      <name>left bottom</name><name>bottom</name><name>right bottom</name>
+    </names>
+  </desktops>
+  <windowRules>
+    <windowRule identifier="xwaylandvideobridge" skipTaskbar="yes" skipWindowSwitcher="yes"/>
+  </windowRules>
+  <keyboard>
+    <default/>
+    <keybind key="W-C-Left"><action name="GoToDesktop" to="left"/></keybind>
+    <keybind key="W-C-Right"><action name="GoToDesktop" to="right"/></keybind>
+    <keybind key="W-C-Up"><action name="GoToDesktop" to="left"/><action name="GoToDesktop" to="left"/><action name="GoToDesktop" to="left"/></keybind>
+    <keybind key="W-C-Down"><action name="GoToDesktop" to="right"/><action name="GoToDesktop" to="right"/><action name="GoToDesktop" to="right"/></keybind>
+    <keybind key="W-C-S-Left"><action name="SendToDesktop" to="left"/></keybind>
+    <keybind key="W-C-S-Right"><action name="SendToDesktop" to="right"/></keybind>
+    <keybind key="W-C-S-Up"><action name="SendToDesktop" to="left"/><action name="SendToDesktop" to="left"/><action name="SendToDesktop" to="left"/></keybind>
+    <keybind key="W-C-S-Down"><action name="SendToDesktop" to="right"/><action name="SendToDesktop" to="right"/><action name="SendToDesktop" to="right"/></keybind>
+    <!-- No C-*/A-* combos that IntelliJ IDEA's Windows keymap defines:
+         Ctrl+F1..F4 and Alt+F1 are IDE actions there. Alt+Tab, Alt+F4 and
+         Alt+Space are OS-owned on Windows (IntelliJ leaves them alone), so
+         those stay; everything else uses Super, which the keymap never uses. -->
+    <keybind key="W-F1"><action name="GoToDesktop" to="1"/></keybind>
+    <keybind key="W-F2"><action name="GoToDesktop" to="2"/></keybind>
+    <keybind key="W-F3"><action name="GoToDesktop" to="3"/></keybind>
+    <keybind key="W-F4"><action name="GoToDesktop" to="4"/></keybind>
+    <keybind key="W-Up"><action name="ToggleMaximize"/></keybind>
+    <keybind key="W-Down"><action name="Iconify"/></keybind>
+    <keybind key="W-Left"><action name="SnapToEdge" direction="left"/></keybind>
+    <keybind key="W-Right"><action name="SnapToEdge" direction="right"/></keybind>
+    <keybind key="W-A-Up"><action name="SnapToEdge" direction="up"/></keybind>
+    <keybind key="W-A-Down"><action name="SnapToEdge" direction="down"/></keybind>
+    <keybind key="W-S-Left"><action name="MoveToOutput" direction="left"/></keybind>
+    <keybind key="W-S-Right"><action name="MoveToOutput" direction="right"/></keybind>
+    <keybind key="A-Space"><action name="ShowMenu" menu="client-menu"/></keybind>
+    <keybind key="A-F4"><action name="Close"/></keybind>
+    <keybind key="W-Tab"><action name="NextWindow"/></keybind>
+    <keybind key="F13"><action name="Execute" command="/home/user/.local/bin/fuzzel-toggle"/></keybind>
+    <keybind key="W-Return"><action name="Execute" command="/home/user/.local/bin/launch-feedback /home/user/AppImages/odytty.appimage"/></keybind>
+    <keybind key="W-e"><action name="Execute" command="/home/user/.local/bin/launch-feedback dolphin"/></keybind>
+    <keybind key="W-L"><action name="Execute" command="swaylock -f"/></keybind>
+    <keybind key="W-V"><action name="Execute" command="sh -c 'cliphist list | fuzzel --dmenu | cliphist decode | wl-copy'"/></keybind>
+    <keybind key="Print"><action name="Execute" command="sh -c 'grim - | tee ~/Pictures/screenshot-$(date +%s).png | wl-copy'"/></keybind>
+    <keybind key="W-S-S"><action name="Execute" command="sh -c 'grim -g &quot;$(slurp)&quot; - | swappy -f -'"/></keybind>
+    <keybind key="W-F12"><action name="ToggleKeybinds"/></keybind>
+  </keyboard>
+  <mouse>
+    <default/>
+    <context name="Root">
+      <!-- Any bare-desktop click closes the launcher. Clicks on windows close
+           it via keyboard-focus loss instead (fuzzel.ini keyboard-focus=
+           on-demand); the Root context never sees those. Left also stays
+           unbound from the root menu (labwc defaults to menu on BOTH desktop
+           clicks); Middle/Right re-state their default menus, which a
+           same-button user bind would otherwise replace. -->
+      <mousebind button="Left" action="Press"><action name="Execute" command="pkill -x fuzzel"/></mousebind>
+      <mousebind button="Middle" action="Press">
+        <action name="Execute" command="pkill -x fuzzel"/>
+        <action name="ShowMenu" menu="client-list-combined-menu"/>
+      </mousebind>
+      <mousebind button="Right" action="Press">
+        <action name="Execute" command="pkill -x fuzzel"/>
+        <action name="ShowMenu" menu="root-menu"/>
+      </mousebind>
+    </context>
+  </mouse>
+</labwc_config>

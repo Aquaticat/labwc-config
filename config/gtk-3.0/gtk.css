@@ -1,0 +1,10 @@
+/* Deploy: append to (or create) ~/.config/gtk-3.0/gtk.css.
+   GTK3 apps insist on client-side decorations under labwc; make them match
+   the square, shadowless labwc SSD look. */
+decoration {
+  border-radius: 0;
+  box-shadow: none;
+}
+decoration:backdrop {
+  box-shadow: none;
+}
