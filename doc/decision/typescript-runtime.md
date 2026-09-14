@@ -28,9 +28,11 @@ installed into the live ISO session with pacman rather than compiled.
   every other helper,
   including the Wayland clients `wlr-pager` and the window watcher in `launch-feedback`,
   and the machine installer.
-- The budget is enforced by measurement in a labwc session on the physical desktop,
-  because the Hyper-V VM renders without the RX 7600.
-  VM measurements can reject a design but cannot accept one.
+- The budget is enforced by measurement in a labwc session on the physical desktop.
+  The Hyper-V VM runs on a slower laptop CPU and renders in software,
+  so its numbers are indicative only:
+  a VM pass suggests a physical pass,
+  and a VM failure of CPU-bound work is strong but not conclusive evidence of a physical failure.
 
 ## Consequences
 

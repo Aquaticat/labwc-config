@@ -72,6 +72,56 @@ UWSM also ships `uwsm-app`,
 a client for its application daemon intended to launch faster than `uwsm app`;
 that claim needs measuring before relying on it.
 
+## VM measurements on 2026-09-14
+
+Environment:
+the Hyper-V CachyOS VM,
+labwc 0.20.2 as root with `WLR_BACKENDS=headless,libinput`,
+`WLR_RENDERER=pixman`,
+and `LIBSEAT_BACKEND=noop`,
+so fuzzel received a real `wl_keyboard.enter`;
+fuzzel 1.15.0,
+uwsm 0.26.7,
+9 desktop entries,
+Inter not installed.
+Each case ran 3 warm-up and 20 measured iterations from a Deno harness.
+
+- `uwsm version`:
+  median 65.0 to 67.0 ms across two rounds.
+  `python3 -c pass` alone:
+  9.9 to 11.1 ms.
+  `qjs -e 0`:
+  1.2 to 1.4 ms.
+- fuzzel from spawn to `wl_keyboard.enter`:
+  - default configuration:
+    median 26.8 to 27.5 ms;
+  - `config/fuzzel/fuzzel.ini`:
+    median 30.1 ms;
+  - the same with `--no-icons`:
+    median 29.6 ms;
+  - `--dmenu` with 5 lines:
+    median 28.8 ms.
+- Positive control,
+  `sh -c 'sleep 0.010; exec fuzzel …'`:
+  median 42.7 ms,
+  12.6 ms above the uncontrolled run,
+  so the method resolves a 10 ms delay.
+
+The libwayland debug timestamp is wall-clock UTC time with microsecond digits:
+a `WAYLAND_DEBUG=client` line printed `[23:37:20.527503]` between two `date +%s.%N` readings of
+`1789429040.524231464` and `1789429040.528685439`.
+
+### Conclusions
+
+- `uwsm app` cannot sit on a hot path:
+  its startup alone is about 3 times the budget in the VM.
+- fuzzel's own startup exceeds the budget in the VM,
+  independent of icons and dmenu mode.
+  It needs measuring on the physical desktop before the launcher choice is final.
+- The Meta-tap daemon is already resident,
+  so it can check for and spawn fuzzel itself,
+  with no separate toggle process on that chain.
+
 ## Measurement method to validate
 
 - **Input time**:
