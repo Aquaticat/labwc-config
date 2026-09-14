@@ -2,7 +2,49 @@
 
 ## Status
 
-Proposal awaiting the user's choice.
+Decided by the user on 2026-09-14,
+against the ranking in this record:
+
+> QuickJS-ng hot paths + Deno rest.
+> Hot paths is defined by:
+> from user input to the required surface becoming interactive.
+> Hot paths must be under 20ms.
+
+The installer also runs on Deno,
+installed into the live ISO session with pacman rather than compiled.
+
+## Decision
+
+- **Hot path**:
+  the chain from a user input event to the surface that input requires becoming interactive.
+  The budget is under 20 ms for the whole chain,
+  including programs this repository does not own,
+  such as fuzzel's own startup.
+- **QuickJS-ng**:
+  every helper on a hot path.
+  QuickJS-ng has no socket API,
+  so a hot-path helper cannot speak the Wayland protocol itself.
+- **Deno**:
+  every other helper,
+  including the Wayland clients `wlr-pager` and the window watcher in `launch-feedback`,
+  and the machine installer.
+- The budget is enforced by measurement in a labwc session on the physical desktop,
+  because the Hyper-V VM renders without the RX 7600.
+  VM measurements can reject a design but cannot accept one.
+
+## Consequences
+
+- Which helpers sit on hot paths follows from the definition and is recorded in
+  `doc/planning/hot-path-budget.md` together with how each chain is measured.
+- QuickJS-ng sources use `qjs:os` and `qjs:std`,
+  so they are an exception to the cross-runtime rule.
+  They are written in TypeScript and transpiled at package build time.
+- The recommendation ranked Bun first;
+  the user chose QuickJS-ng plus Deno instead.
+  The measurements and options are kept for the record.
+
+## Original evaluation
+
 Measured on 2026-09-14.
 
 ## Workloads
