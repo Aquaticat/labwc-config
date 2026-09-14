@@ -1,0 +1,8 @@
+/* Deploy: append to (or create) ~/.config/gtk-4.0/gtk.css.
+   Most GTK4 apps get labwc SSD (GTK4 dropped xdg-decoration support, and
+   labwc decorates clients that state no preference), but any window that
+   stays client-side decorated gets squared and de-shadowed here. */
+window.csd {
+  border-radius: 0;
+  box-shadow: none;
+}

@@ -1,0 +1,34 @@
+vCPUs: 1
+compositor cgroup: /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@labwc.service
+=== A: idle baseline ===
+lat[idle] 1: 0.004s
+lat[idle] 2: 0.002s
+lat[idle] 3: 0.002s
+lat[idle] 4: 0.002s
+lat[idle] 5: 0.002s
+bench[alone] cgroup: /user.slice/user-1000.slice/user@1000.service/app.slice/bench-alone.scope
+bench[alone] iterations: 64565396
+=== B: FLAT — 8 unlimited spinners + renderer all inside the compositor's cgroup ===
+spinners moved into compositor cgroup: 8
+lat[flat] 1: 0.016s
+lat[flat] 2: 0.016s
+lat[flat] 3: 0.014s
+lat[flat] 4: 0.014s
+lat[flat] 5: 0.015s
+bench[flat] cgroup: /user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@labwc.service
+bench[flat] iterations: 7444974
+=== C: SCOPED — spinners via uwsm app (unlimited, app-graphical.slice); renderer in session.slice ===
+spinner cgroup: /user.slice/user-1000.slice/user@1000.service/app.slice/app-graphical.slice/app-uwsm-bash-3c669b73.scope
+lat[scoped] 1: 0.014s
+lat[scoped] 2: 0.014s
+lat[scoped] 3: 0.013s
+lat[scoped] 4: 0.013s
+lat[scoped] 5: 0.013s
+bench[scoped-app] cgroup: /user.slice/user-1000.slice/user@1000.service/app.slice/bench-scoped-app.scope
+bench[scoped-app] iterations: 32586805
+bench[scoped-session] cgroup: /user.slice/user-1000.slice/user@1000.service/session.slice/bench-scoped-session.scope
+bench[scoped-session] iterations: 54001196
+=== cgroup weights in play (untuned Bazzite defaults) ===
+session.slice cpu.weight: 500
+app.slice cpu.weight: 100
+DEMO2_DONE

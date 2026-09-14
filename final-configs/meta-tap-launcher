@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Bare-Meta-tap launcher + shortcut guard: passive evdev observer.
+
+- Meta tapped alone (no other key/button, <= 400 ms) -> run CMD
+  (fuzzel-toggle: opens the launcher, or closes it if already shown).
+- Meta+F12 chord -> toggle the suspend flag (mirrors labwc ToggleKeybinds,
+  which should be bound to W-F12 separately). While suspended, taps are inert.
+No grabs, no uinput: coexists with ydotoold and all other input tooling.
+Requires 'input' group membership and python3-evdev.
+"""
+import os
+import select
+import signal
+import subprocess
+
+import evdev
+from evdev import ecodes
+
+CMD = [os.path.expanduser("~/.local/bin/fuzzel-toggle")]
+TAP_TIMEOUT_S = 0.4
+FLAG = os.path.expanduser("~/.cache/shortcuts-suspended")
+
+
+def notify(title, body):
+    subprocess.Popen(["notify-send", "-t", "2000", title, body],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def toggle_flag():
+    if os.path.exists(FLAG):
+        os.unlink(FLAG)
+        notify("Shortcuts restored", "Global shortcuts active again")
+    else:
+        open(FLAG, "w").close()
+        notify("Shortcuts suspended", "Keys pass through (Meta+F12 to restore)")
+
+
+def open_devices():
+    devs = []
+    for path in evdev.list_devices():
+        try:
+            d = evdev.InputDevice(path)
+        except OSError:
+            continue
+        caps = d.capabilities().get(ecodes.EV_KEY, [])
+        if ecodes.KEY_LEFTMETA in caps or ecodes.BTN_LEFT in caps:
+            devs.append(d)
+    return devs
+
+
+def main():
+    # Auto-reap spawned children (no return codes are read anywhere here);
+    # without this every launch leaves a zombie.
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+    devs = open_devices()
+    if not devs:
+        raise SystemExit("no input devices readable (not in 'input' group?)")
+    fdmap = {d.fd: d for d in devs}
+    meta_down = False
+    armed = False
+    t_down = 0.0
+    while True:
+        ready, _, _ = select.select(fdmap, [], [], None)
+        for fd in ready:
+            try:
+                events = fdmap[fd].read()
+            except OSError:
+                fdmap.pop(fd)
+                continue
+            for ev in events:
+                if ev.type != ecodes.EV_KEY:
+                    continue
+                if ev.code == ecodes.KEY_LEFTMETA:
+                    if ev.value == 1:
+                        meta_down = True
+                        armed = True
+                        t_down = ev.timestamp()
+                    elif ev.value == 0:
+                        if (armed and ev.timestamp() - t_down <= TAP_TIMEOUT_S
+                                and not os.path.exists(FLAG)):
+                            subprocess.Popen(CMD)
+                        meta_down = False
+                        armed = False
+                elif ev.value == 1:
+                    armed = False
+                    if ev.code == ecodes.KEY_F12 and meta_down:
+                        toggle_flag()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,71 @@
+=== booted deployment ===
+State: idle
+BootedDeployment:
+● ostree-unverified-registry:ghcr.io/ublue-os/bazzite:stable
+                   Digest: sha256:5496cc915c431cac9d99887a87a8185a3bf8aa2a6647e7d9cfb7e9cc796fb919
+                  Version: 44.20260713 (2026-07-13T06:09:48Z)
+          LayeredPackages: foot fuzzel labwc swaybg uwsm waybar wlr-randr
+=== graphical session ===
+1  968 plasma-setup seat0 1301 user          tty1 no -
+2  968 plasma-setup -     1315 manager-early -    no -
+5 1000 user         -     2247 user          -    no -
+6 1000 user         -     2254 manager       -    no -
+-- session 1:
+Desktop=KDE
+Type=wayland
+Active=yes
+State=active
+=== uwsm user units ===
+=== process -> systemd unit placement ===
+=== user slice tree (top) ===
+CGroup /:
+-.slice
+├─user.slice
+│ ├─user-968.slice
+│ │ ├─user@968.service …
+│ │ │ ├─session.slice
+│ │ │ │ ├─xdg-permission-store.service
+│ │ │ │ │ └─1912 /usr/libexec/xdg-permission-store
+│ │ │ │ ├─dbus-broker.service
+│ │ │ │ │ ├─1338 /usr/bin/dbus-broker-launch --scope user
+│ │ │ │ │ └─1347 dbus-broker --log 11 --controller 10 --machine-id d9cf3528b785…
+│ │ │ │ ├─xdg-document-portal.service
+│ │ │ │ │ ├─1924 /usr/libexec/xdg-document-portal
+│ │ │ │ │ └─1934 fusermount3 -o rw,nosuid,nodev,fsname=portal,auto_unmount,subt…
+│ │ │ │ ├─xdg-desktop-portal.service
+│ │ │ │ │ └─1884 /usr/libexec/xdg-desktop-portal
+│ │ │ │ ├─plasma-ksmserver.service
+│ │ │ │ │ └─1621 /usr/bin/ksmserver
+│ │ │ │ ├─pipewire-pulse.service
+│ │ │ │ │ └─1662 /usr/bin/pipewire-pulse
+│ │ │ │ ├─plasma-kwin_wayland.service
+│ │ │ │ │ ├─1456 /usr/bin/kwin_wayland_wrapper --xwayland
+│ │ │ │ │ ├─1469 /usr/bin/kwin_wayland --wayland-fd 7 --socket wayland-0 --xway…
+│ │ │ │ │ ├─1536 /usr/bin/plasma-keyboard
+│ │ │ │ │ └─1546 /usr/bin/Xwayland :0 -auth /run/user/968/xauth_EtocWa -listenf…
+│ │ │ │ ├─wireplumber.service
+│ │ │ │ │ └─1486 /usr/bin/wireplumber
+│ │ │ │ ├─gvfs-daemon.service
+│ │ │ │ │ └─1467 /usr/libexec/gvfsd
+│ │ │ │ ├─plasma-kded6.service
+│ │ │ │ │ ├─1624 /usr/bin/kded6
+│ │ │ │ │ └─1805 /usr/bin/xsettingsd
+│ │ │ │ ├─plasma-xdg-desktop-portal-kde.service
+│ │ │ │ │ └─1942 /usr/libexec/xdg-desktop-portal-kde
+│ │ │ │ ├─plasma-plasmashell.service
+│ │ │ │ │ ├─1655 /usr/bin/plasmashell --no-respawn
+│ │ │ │ │ └─1980 /usr/libexec/kf6/kioworker /usr/lib64/qt6/plugins/kf6/kio/desk…
+│ │ │ │ ├─at-spi-dbus-bus.service
+│ │ │ │ │ ├─1598 /usr/libexec/at-spi-bus-launcher
+│ │ │ │ │ ├─1611 /usr/bin/dbus-broker-launch --config-file=/usr/share/defaults/…
+│ │ │ │ │ └─1613 dbus-broker --log 10 --controller 9 --machine-id d9cf3528b7854…
+│ │ │ │ └─pipewire.service
+│ │ │ │   └─1485 /usr/bin/pipewire
+│ │ │ ├─background.slice
+│ │ │ │ ├─plasma-kactivitymanagerd.service
+│ │ │ │ │ └─1712 /usr/libexec/kactivitymanagerd
+│ │ │ │ ├─plasma-polkit-agent.service
+│ │ │ │ │ └─1728 /usr/libexec/kf6/polkit-kde-authentication-agent-1
+│ │ │ │ ├─kunifiedpush-distributor.service
+│ │ │ │ │ └─1881 /usr/bin/kunifiedpush-distributor
+VERIFY_DONE

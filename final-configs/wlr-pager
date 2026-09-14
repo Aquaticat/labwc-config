@@ -1,0 +1,257 @@
+#!/usr/bin/env python3
+"""3x3 KDE-style pager backend for waybar on labwc (ext-workspace-v1).
+
+Speaks the Wayland wire protocol directly over the session socket — no
+pywayland, no compiled deps. Desktop names must match labwc rc.xml <names>.
+
+Usage:
+  wlr-pager daemon           track active desktop; write per-cell JSON files
+                             to ~/.cache/wlr-pager/ and SIGRTMIN+8 waybar
+  wlr-pager watch            print active desktop name on every change
+                             (flushed; for sfwbar ExecClient)
+  wlr-pager activate <n|name>  switch to desktop by grid index 0-8 or name
+  wlr-pager next|prev        cycle through the grid in reading order
+"""
+import fcntl
+import json
+import os
+import socket
+import struct
+import subprocess
+import sys
+import time
+
+GRID = [
+    ["left top", "top", "right top"],
+    ["left", "middle", "right"],
+    ["left bottom", "bottom", "right bottom"],
+]
+ORDER = [n for row in GRID for n in row]
+CACHE = os.path.expanduser("~/.cache/wlr-pager")
+WAYBAR_SIGNAL = "-RTMIN+8"
+STATE_ACTIVE = 1
+
+
+class Parser:
+    def __init__(self, data):
+        self.d = data
+        self.o = 0
+
+    def uint(self):
+        v, = struct.unpack_from("<I", self.d, self.o)
+        self.o += 4
+        return v
+
+    def string(self):
+        n = self.uint()
+        s = self.d[self.o:self.o + n - 1].decode() if n else ""
+        self.o += (n + 3) & ~3
+        return s
+
+
+class Client:
+    """Minimal ext-workspace-v1 client."""
+
+    def __init__(self):
+        xdg = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+        disp = os.environ.get("WAYLAND_DISPLAY", "wayland-0")
+        path = disp if disp.startswith("/") else os.path.join(xdg, disp)
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(path)
+        self.buf = b""
+        self.next_id = 2
+        self.objects = {1: "display"}
+        self.manager = None
+        self.workspaces = {}  # obj id -> {"name": str|None, "state": int}
+        self.pending_cb = None
+        self.on_state = None  # daemon hook, called on manager `done`
+        registry = self.new_id("registry")
+        self.registry = registry
+        self.send(1, 1, struct.pack("<I", registry))  # wl_display.get_registry
+        self.roundtrip()  # globals -> bind manager
+        if self.manager is None:
+            raise RuntimeError("compositor lacks ext_workspace_manager_v1")
+        self.roundtrip()  # initial workspace burst + done
+
+    def new_id(self, iface):
+        i = self.next_id
+        self.next_id += 1
+        self.objects[i] = iface
+        return i
+
+    def send(self, obj, opcode, args=b""):
+        size = 8 + len(args)
+        self.sock.sendall(struct.pack("<II", obj, (size << 16) | opcode) + args)
+
+    @staticmethod
+    def arg_str(s):
+        b = s.encode() + b"\0"
+        return struct.pack("<I", len(b)) + b + b"\0" * ((-len(b)) % 4)
+
+    def read_msg(self):
+        while len(self.buf) < 8:
+            d = self.sock.recv(65536)
+            if not d:
+                raise EOFError("compositor closed the connection")
+            self.buf += d
+        obj, sz_op = struct.unpack_from("<II", self.buf)
+        size, op = sz_op >> 16, sz_op & 0xFFFF
+        while len(self.buf) < size:
+            d = self.sock.recv(65536)
+            if not d:
+                raise EOFError("compositor closed the connection")
+            self.buf += d
+        payload = self.buf[8:size]
+        self.buf = self.buf[size:]
+        return obj, op, payload
+
+    def roundtrip(self):
+        cb = self.new_id("callback")
+        self.pending_cb = cb
+        self.send(1, 0, struct.pack("<I", cb))  # wl_display.sync
+        while self.pending_cb is not None:
+            self.dispatch(*self.read_msg())
+
+    def dispatch(self, obj, op, payload):
+        iface = self.objects.get(obj)
+        p = Parser(payload)
+        if iface == "display":
+            if op == 0:  # error
+                oid, code, msg = p.uint(), p.uint(), p.string()
+                raise RuntimeError(f"wayland error on object {oid}: {code} {msg}")
+            # op 1 delete_id: nothing to recycle, ids are never reused here
+        elif iface == "registry" and op == 0:  # global
+            name, interface, _version = p.uint(), p.string(), p.uint()
+            if interface == "ext_workspace_manager_v1":
+                self.manager = self.new_id("manager")
+                self.send(self.registry, 0,
+                          struct.pack("<I", name) + self.arg_str(interface)
+                          + struct.pack("<II", 1, self.manager))
+        elif iface == "callback" and op == 0:  # done
+            if obj == self.pending_cb:
+                self.pending_cb = None
+        elif iface == "manager":
+            if op in (0, 1):  # workspace_group / workspace (new server object)
+                oid = p.uint()
+                self.objects[oid] = "group" if op == 0 else "workspace"
+                if op == 1:
+                    self.workspaces[oid] = {"name": None, "state": 0}
+            elif op == 2 and self.on_state:  # done: state is now consistent
+                self.on_state()
+        elif iface == "workspace":
+            ws = self.workspaces.get(obj)
+            if ws is None:
+                return
+            if op == 1:
+                ws["name"] = p.string()
+            elif op == 3:
+                ws["state"] = p.uint()
+            elif op == 5:  # removed
+                self.objects.pop(obj, None)
+                self.workspaces.pop(obj, None)
+                self.send(obj, 0)  # destroy
+
+    def active_name(self):
+        for ws in self.workspaces.values():
+            if ws["state"] & STATE_ACTIVE:
+                return ws["name"]
+        return None
+
+    def activate(self, name):
+        for oid, ws in self.workspaces.items():
+            if ws["name"] == name:
+                self.send(oid, 1)          # ext_workspace_handle_v1.activate
+                self.send(self.manager, 0)  # ext_workspace_manager_v1.commit
+                self.roundtrip()
+                return True
+        return False
+
+
+def write_cells(active):
+    os.makedirs(CACHE, exist_ok=True)
+    for i, name in enumerate(ORDER):
+        cls = "active" if name == active else "inactive"
+        data = json.dumps({"text": " ", "class": ["cell", cls], "tooltip": name})
+        tmp = os.path.join(CACHE, f".cell-{i}.tmp")
+        with open(tmp, "w") as f:
+            f.write(data + "\n")
+        os.replace(tmp, os.path.join(CACHE, f"cell-{i}.json"))
+
+
+def daemon():
+    os.makedirs(CACHE, exist_ok=True)
+    lock = open(os.path.join(CACHE, ".lock"), "w")  # noqa: held for lifetime
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        sys.exit(0)  # another daemon owns the pager
+    last = object()
+    while True:
+        try:
+            c = Client()
+
+            def push():
+                nonlocal last
+                active = c.active_name()
+                if active != last:
+                    write_cells(active)
+                    subprocess.run(["pkill", WAYBAR_SIGNAL, "-x", "waybar"],
+                                   check=False)
+                    last = active
+
+            c.on_state = push
+            push()
+            while True:
+                c.dispatch(*c.read_msg())
+        except (EOFError, ConnectionError, FileNotFoundError):
+            time.sleep(2)  # compositor gone/restarting; try again
+
+
+def watch():
+    last = None
+    while True:
+        try:
+            c = Client()
+
+            def push():
+                nonlocal last
+                active = c.active_name()
+                if active and active != last:
+                    print(active, flush=True)
+                    last = active
+
+            c.on_state = push
+            push()
+            while True:
+                c.dispatch(*c.read_msg())
+        except (EOFError, ConnectionError, FileNotFoundError):
+            time.sleep(2)
+
+
+def resolve(target):
+    if target.isdigit() and int(target) < len(ORDER):
+        return ORDER[int(target)]
+    return target
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "daemon"
+    if cmd == "daemon":
+        daemon()
+    elif cmd == "watch":
+        watch()
+    elif cmd == "activate" and len(sys.argv) > 2:
+        c = Client()
+        if not c.activate(resolve(sys.argv[2])):
+            sys.exit(f"no workspace named {resolve(sys.argv[2])!r}")
+    elif cmd in ("next", "prev"):
+        c = Client()
+        cur = c.active_name()
+        i = ORDER.index(cur) if cur in ORDER else 0
+        c.activate(ORDER[(i + (1 if cmd == "next" else -1)) % len(ORDER)])
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

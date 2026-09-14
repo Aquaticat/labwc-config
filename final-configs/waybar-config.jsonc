@@ -1,0 +1,183 @@
+{
+  "layer": "top",
+  "position": "bottom",
+  "height": 48,
+  "spacing": 0,
+  "modules-left": [
+    "group/pager",
+    "wlr/taskbar",
+    "custom/space"
+  ],
+  "modules-right": [
+    "tray",
+    "pulseaudio",
+    "clock"
+  ],
+  "group/pager": {
+    "orientation": "vertical",
+    "modules": [
+      "group/pagerrow0",
+      "group/pagerrow1",
+      "group/pagerrow2"
+    ]
+  },
+  "wlr/taskbar": {
+    "format": "{icon} {title:.30}",
+    "icon-size": 20,
+    "on-click": "minimize-raise",
+    "on-click-middle": "close",
+    "on-click-right": "maximize",
+    "tooltip-format": "{title}"
+  },
+  "custom/space": {
+    "format": " ",
+    "expand": true,
+    "tooltip": false,
+    "on-click-right": "~/.local/bin/panel-menu"
+  },
+  "tray": {
+    "icon-size": 20,
+    "spacing": 6
+  },
+  "pulseaudio": {
+    "format": "{volume}%",
+    "format-muted": "muted",
+    "on-click": "pavucontrol",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+  },
+  "clock": {
+    "format": "{:%H:%M\n%Y-%m-%d}",
+    "tooltip-format": "<tt><small>{calendar}</small></tt>",
+    "justify": "center",
+    "calendar": {
+      "mode": "month",
+      "mode-mon-col": 3,
+      "on-scroll": 1,
+      "format": {
+        "months": "<span color='#eff0f1'><b>{}</b></span>",
+        "days": "<span color='#7f8c8d'>{}</span>",
+        "weekdays": "<span color='#6060c0'><b>{}</b></span>",
+        "today": "<span color='#6060c0'><b><u>{}</u></b></span>"
+      }
+    },
+    "actions": {
+      "on-click-right": "mode",
+      "on-scroll-up": "shift_up",
+      "on-scroll-down": "shift_down"
+    }
+  },
+  "group/pagerrow0": {
+    "orientation": "horizontal",
+    "modules": [
+      "custom/ws0",
+      "custom/ws1",
+      "custom/ws2"
+    ]
+  },
+  "custom/ws0": {
+    "exec": "cat ~/.cache/wlr-pager/cell-0.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 0",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "custom/ws1": {
+    "exec": "cat ~/.cache/wlr-pager/cell-1.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 1",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "custom/ws2": {
+    "exec": "cat ~/.cache/wlr-pager/cell-2.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 2",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "group/pagerrow1": {
+    "orientation": "horizontal",
+    "modules": [
+      "custom/ws3",
+      "custom/ws4",
+      "custom/ws5"
+    ]
+  },
+  "custom/ws3": {
+    "exec": "cat ~/.cache/wlr-pager/cell-3.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 3",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "custom/ws4": {
+    "exec": "cat ~/.cache/wlr-pager/cell-4.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 4",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "custom/ws5": {
+    "exec": "cat ~/.cache/wlr-pager/cell-5.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 5",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "group/pagerrow2": {
+    "orientation": "horizontal",
+    "modules": [
+      "custom/ws6",
+      "custom/ws7",
+      "custom/ws8"
+    ]
+  },
+  "custom/ws6": {
+    "exec": "cat ~/.cache/wlr-pager/cell-6.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 6",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "custom/ws7": {
+    "exec": "cat ~/.cache/wlr-pager/cell-7.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 7",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  },
+  "custom/ws8": {
+    "exec": "cat ~/.cache/wlr-pager/cell-8.json 2>/dev/null || echo '{\"text\": \" \", \"class\": [\"cell\", \"inactive\"]}'",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "format": "{}",
+    "on-click": "~/.local/bin/wlr-pager activate 8",
+    "on-scroll-up": "~/.local/bin/wlr-pager prev",
+    "on-scroll-down": "~/.local/bin/wlr-pager next"
+  }
+}

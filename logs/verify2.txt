@@ -1,0 +1,80 @@
+=== booted deployment ===
+State: idle
+BootedDeployment:
+● ostree-unverified-registry:ghcr.io/ublue-os/bazzite:stable
+                   Digest: sha256:5496cc915c431cac9d99887a87a8185a3bf8aa2a6647e7d9cfb7e9cc796fb919
+                  Version: 44.20260713 (2026-07-13T06:09:48Z)
+          LayeredPackages: foot fuzzel labwc swaybg uwsm waybar wlr-randr
+=== graphical session ===
+1 1000 user seat0 1281 user    tty1 no -
+2 1000 user -     1311 manager -    no -
+4 1000 user -     2091 user    -    no -
+-- session 1:
+Desktop=wlroots:labwc
+Type=wayland
+Active=yes
+State=active
+=== uwsm user units ===
+  wayland-session-bindpid@1349.service       loaded active running Bind graphical session to PID 1349
+  wayland-wm-env@labwc.service               loaded active exited  Environment preloader for labwc
+  wayland-wm@labwc.service                   loaded active running Main service for labwc
+  wayland-session-envelope@labwc.target      loaded active active  Session envelope of labwc Wayland compositor
+  wayland-session-pre@labwc.target           loaded active active  Preparation for session of labwc Wayland compositor
+  wayland-session-xdg-autostart@labwc.target loaded active active  XDG Autostart for session of labwc Wayland compositor
+  wayland-session@labwc.target               loaded active active  Session of labwc Wayland compositor
+=== process -> systemd unit placement ===
+[labwc]    1629 user@1000.service               /usr/bin/labwc
+[swaybg]    1667 user@1000.service               swaybg -c #1c4587
+[foot]    1668 user@1000.service               /usr/bin/foot
+=== user slice tree (top) ===
+CGroup /:
+-.slice
+├─user.slice
+│ └─user-1000.slice
+│   ├─user@1000.service …
+│   │ ├─session.slice
+│   │ │ ├─xdg-permission-store.service
+│   │ │ │ └─1790 /usr/libexec/xdg-permission-store
+│   │ │ ├─dbus-broker.service
+│   │ │ │ ├─1343 /usr/bin/dbus-broker-launch --scope user
+│   │ │ │ └─1365 dbus-broker --log 11 --controller 10 --machine-id d9cf3528b785…
+│   │ │ ├─xdg-document-portal.service
+│   │ │ │ ├─1811 /usr/libexec/xdg-document-portal
+│   │ │ │ └─1824 fusermount3 -o rw,nosuid,nodev,fsname=portal,auto_unmount,subt…
+│   │ │ ├─xdg-desktop-portal.service
+│   │ │ │ └─1774 /usr/libexec/xdg-desktop-portal
+│   │ │ ├─pipewire-pulse.service
+│   │ │ │ └─1975 /usr/bin/pipewire-pulse
+│   │ │ ├─wireplumber.service
+│   │ │ │ └─1486 /usr/bin/wireplumber
+│   │ │ ├─gvfs-daemon.service
+│   │ │ │ └─1476 /usr/libexec/gvfsd
+│   │ │ ├─wayland-wm@labwc.service
+│   │ │ │ ├─1629 /usr/bin/labwc
+│   │ │ │ ├─1667 swaybg -c #1c4587
+│   │ │ │ └─1798 Xwayland :0 -rootless -core -terminate 10 -listenfd 38 -listen…
+│   │ │ ├─at-spi-dbus-bus.service
+│   │ │ │ ├─1879 /usr/libexec/at-spi-bus-launcher
+│   │ │ │ ├─1893 /usr/bin/dbus-broker-launch --config-file=/usr/share/defaults/…
+│   │ │ │ └─1900 dbus-broker --log 10 --controller 9 --machine-id d9cf3528b7854…
+│   │ │ └─pipewire.service
+│   │ │   └─1485 /usr/bin/pipewire
+│   │ ├─background.slice
+│   │ │ ├─kunifiedpush-distributor.service
+│   │ │ │ └─1696 /usr/bin/kunifiedpush-distributor
+│   │ │ └─wayland-session-bindpid@1349.service
+│   │ │   └─1466 waitpid -e 1349
+│   │ ├─uresourced.service
+│   │ │ └─1469 /usr/libexec/uresourced --user
+│   │ ├─app.slice
+│   │ │ ├─dbus-:1.3-org.freedesktop.Notifications@0.service
+│   │ │ │ └─1913 /usr/bin/plasma_waitforname org.freedesktop.Notifications
+│   │ │ ├─app-graphical.slice
+│   │ │ │ ├─app-org.kde.kdeconnect.daemon@autostart.service
+│   │ │ │ │ └─1680 /usr/bin/kdeconnectd
+│   │ │ │ ├─app-wlroots-foot-a480c545.scope
+│   │ │ │ │ ├─1668 /usr/bin/foot
+│   │ │ │ │ └─1741 /bin/bash
+│   │ │ │ ├─app-geoclue\x2ddemo\x2dagent@autostart.service
+│   │ │ │ │ └─1710 /usr/libexec/geoclue-2.0/demos/agent
+VERIFY_DONE

@@ -1,0 +1,52 @@
+vCPUs: 2
+compositor cgroup: /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@labwc.service
+=== A: idle baseline ===
+lat[idle] 1: 0.004s
+lat[idle] 2: 0.003s
+lat[idle] 3: 0.003s
+lat[idle] 4: 0.003s
+lat[idle] 5: 0.003s
+bench[alone] cgroup: /user.slice/user-1000.slice/user@1000.service/app.slice/bench-alone.scope
+bench[alone] iterations: 62870198
+=== B: FLAT — 8 unlimited spinners + renderer all inside the compositor's cgroup ===
+spinners moved into compositor cgroup: 8
+lat[flat] 1: 0.013s
+lat[flat] 2: 0.010s
+lat[flat] 3: 0.010s
+lat[flat] 4: 0.014s
+lat[flat] 5: 0.010s
+bench[flat] cgroup: /user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@labwc.service
+bench[flat] iterations: 13571889
+=== C: SCOPED — spinners via uwsm app (unlimited, app-graphical.slice); renderer in session.slice ===
+spinner cgroup: /user.slice/user-1000.slice/user@1000.service/app.slice/app-graphical.slice/app-uwsm-bash-4a0e6855.scope
+lat[scoped] 1: 0.011s
+lat[scoped] 2: 0.008s
+lat[scoped] 3: 0.008s
+lat[scoped] 4: 0.012s
+lat[scoped] 5: 0.010s
+bench[scoped-app] cgroup: /user.slice/user-1000.slice/user@1000.service/app.slice/bench-scoped-app.scope
+bench[scoped-app] iterations: 57156567
+bench[scoped-session] cgroup: /user.slice/user-1000.slice/user@1000.service/session.slice/bench-scoped-session.scope
+bench[scoped-session] iterations: 64872127
+=== cgroup weights in play (untuned Bazzite defaults) ===
+session.slice cpu.weight: 500
+app.slice cpu.weight: 100
+=== D: UNLIMITED memory bomb via uwsm app — global pressure, who dies? ===
+[   84.578890] python3 invoked oom-killer: gfp_mask=0x140dca(GFP_HIGHUSER_MOVABLE|__GFP_ZERO|__GFP_COMP), order=0, oom_score_adj=0
+[   85.091257] oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=/,mems_allowed=0,global_oom,task_memcg=/user.slice/user-1000.slice/user@1000.service/app.slice/app-graphical.slice/app-uwsm-python3-521ab7de.scope,task=python3,pid=2530,uid=1000
+[   85.096605] Out of memory: Killed process 2530 (python3) total-vm:11711188kB, anon-rss:7292640kB, file-rss:16kB, shmem-rss:0kB, UID:1000 pgtables:22148kB oom_score_adj:0
+guest-demo2.sh: line 102:  2530 Killed                     uwsm app -- python3 -c '
+l=[]
+import time
+while True:
+    l.append(b"x"*(200*1024*1024))
+    time.sleep(0.1)
+' > /dev/null 2>&1
+labwc pid: was 1524, now 1524
+compositor unit: active
+lat[post-oom] 1: 0.007s
+lat[post-oom] 2: 0.003s
+lat[post-oom] 3: 0.003s
+lat[post-oom] 4: 0.003s
+lat[post-oom] 5: 0.003s
+DEMO2_DONE

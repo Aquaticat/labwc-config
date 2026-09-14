@@ -1,0 +1,14 @@
+* { font-family: "Inter Variable", "Inter", sans-serif; font-size: 12px; min-height: 0; border-radius: 0; }
+window#waybar { background: #000000; color: #eff0f1; }
+
+/* 3x3 desktop pager (KDE-style grid); cells fed by wlr-pager daemon */
+#pager { margin: 0 4px 0 2px; }
+.cell { font-size: 1px; min-width: 14px; min-height: 14px; margin: 1px; padding: 0; background: #1c1c1c; }
+.cell:hover { background: #3a3a3a; }
+.cell.active { background: #6060c0; }
+
+#taskbar button { padding: 0 8px; margin: 2px 1px; background: #1a1a1a; color: #eff0f1; }
+#taskbar button.active { background: rgba(96, 96, 192, 0.4); }
+#taskbar button:hover { background: rgba(96, 96, 192, 0.25); }
+#tray, #pulseaudio { padding: 0 8px; }
+#clock { padding: 0 10px; font-size: 10px; }

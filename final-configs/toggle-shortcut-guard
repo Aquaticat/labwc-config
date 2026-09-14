@@ -1,0 +1,9 @@
+#!/bin/sh
+FLAG="$HOME/.cache/shortcuts-suspended"
+if [ -e "$FLAG" ]; then
+  rm -f "$FLAG"
+  notify-send -t 2000 "Shortcuts restored" "Global shortcuts active again" 2>/dev/null || true
+else
+  touch "$FLAG"
+  notify-send -t 2000 "Shortcuts suspended" "Keys pass through (Meta+F12 to restore)" 2>/dev/null || true
+fi

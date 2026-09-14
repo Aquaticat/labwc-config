@@ -1,0 +1,22 @@
+# VM images and installer media: regenerate per README.md ("What is not in this repo").
+*.qcow2
+*.iso
+boot/
+OVMF_VARS.fd
+
+# Third-party binary release; download it yourself (README.md).
+*.AppImage
+
+# Private half of the VM-only SSH keypair. Never publish a private key, even a throwaway one.
+id_ed25519
+
+# Unused wallpaper.
+convergence.png
+
+# Original screenshots. The committed copies are the .avif re-encodes next to them.
+*.png
+*.ppm
+
+# Tooling artifacts.
+.claude/
+__pycache__/

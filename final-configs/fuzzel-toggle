@@ -1,0 +1,13 @@
+#!/bin/sh
+# Toggle the fuzzel launcher: if a live instance is up, close it; else start one.
+# A defunct fuzzel (state Z) must not count as "open" — check /proc state,
+# don't trust bare pgrep/pkill.
+found=
+for pid in $(pgrep -x fuzzel); do
+  case "$(cut -d" " -f3 "/proc/$pid/stat" 2>/dev/null)" in
+    Z) ;;
+    *) kill "$pid" 2>/dev/null && found=1 ;;
+  esac
+done
+[ -n "$found" ] && exit 0
+exec uwsm app -- fuzzel

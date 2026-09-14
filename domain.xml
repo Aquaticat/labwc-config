@@ -1,0 +1,65 @@
+<domain type="kvm">
+  <name>bazzite-labwc-test</name>
+  <uuid>4f7869f6-64da-45f6-9d82-125bb40a1154</uuid>
+  <memory>8388608</memory>
+  <currentMemory>8388608</currentMemory>
+  <vcpu>8</vcpu>
+  <os firmware="efi">
+    <type arch="x86_64" machine="q35">hvm</type>
+    <boot dev="hd"/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+    <vmport state="off"/>
+  </features>
+  <cpu mode="host-passthrough"/>
+  <clock offset="utc">
+    <timer name="rtc" tickpolicy="catchup"/>
+    <timer name="pit" tickpolicy="delay"/>
+    <timer name="hpet" present="no"/>
+  </clock>
+  <pm>
+    <suspend-to-mem enabled="no"/>
+    <suspend-to-disk enabled="no"/>
+  </pm>
+  <devices>
+    <emulator>/app/lib/extensions/bin/qemu-system-x86_64</emulator>
+    <disk type="file" device="disk">
+      <driver name="qemu" type="qcow2"/>
+      <source file="/var/home/user/labwc-vm-test/disk.qcow2"/>
+      <target dev="vda" bus="virtio"/>
+    </disk>
+    <controller type="usb" model="ich9-ehci1"/>
+    <controller type="usb" model="ich9-uhci1">
+      <master startport="0"/>
+    </controller>
+    <controller type="usb" model="ich9-uhci2">
+      <master startport="2"/>
+    </controller>
+    <controller type="usb" model="ich9-uhci3">
+      <master startport="4"/>
+    </controller>
+    <interface type="user">
+      <mac address="52:54:00:74:9d:28"/>
+      <model type="e1000"/>
+    </interface>
+    <console type="pty"/>
+    <channel type="spicevmc">
+      <target type="virtio" name="com.redhat.spice.0"/>
+    </channel>
+    <input type="tablet" bus="usb"/>
+    <tpm model="tpm-crb">
+      <backend type="emulator"/>
+    </tpm>
+    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
+      <image compression="off"/>
+    </graphics>
+    <sound model="ich6"/>
+    <video>
+      <model type="virtio"/>
+    </video>
+    <redirdev bus="usb" type="spicevmc"/>
+    <redirdev bus="usb" type="spicevmc"/>
+  </devices>
+</domain>

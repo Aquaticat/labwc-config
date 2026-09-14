@@ -1,0 +1,429 @@
+#!/usr/bin/env python3
+"""KDE-style launch feedback for labwc: while an app is starting, the mouse
+cursor becomes an animated spinner ring around the app's icon (next to the
+normal arrow), reverting when the app's window maps or after a timeout.
+
+labwc has no launch-feedback support, but it re-reads XCURSOR_THEME from
+~/.config/labwc/environment on SIGHUP and animates multi-frame XCursors, so
+this works by generating an animated cursor theme per app (cached) and
+flipping the theme around the launch.  Inherent limit: the compositor cursor
+only shows over the desktop and server-side decorations — app windows set
+their own cursor, so no feedback is visible while hovering inside one.
+
+Usage:  launch-feedback [--icon NAME] COMMAND [ARGS...]
+The command is started via `uwsm app -t service -- COMMAND...` immediately; all cursor
+work happens after the spawn so feedback can never delay or break a launch.
+"""
+import fcntl
+import glob
+import os
+import re
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import time
+
+HOME = os.path.expanduser("~")
+CACHE = os.path.join(HOME, ".cache/launch-feedback")
+THEME_DIR = os.path.join(HOME, ".local/share/icons/launch-feedback")
+ENV_FILE = os.path.join(HOME, ".config/labwc/environment")
+NORMAL_THEME = "breeze_cursors"
+ARROW = "/usr/share/icons/breeze_cursors/cursors/default"
+ACCENT = (0x60, 0x60, 0xC0, 255)          # selection purple
+TRACK = (0, 0, 0, 110)                    # ring backdrop, visible on any bg
+FRAMES = 12
+DELAY_MS = 50
+TIMEOUT = 5.0                             # KDE's busy-cursor default
+
+ICON_DIRS = [
+    os.path.join(HOME, ".local/share/flatpak/exports/share/icons"),
+    "/var/lib/flatpak/exports/share/icons",
+    os.path.join(HOME, ".local/share/icons"),
+    "/usr/share/icons/breeze-dark",
+    "/usr/share/icons/hicolor",
+    "/usr/share/pixmaps",
+]
+DESKTOP_DIRS = [
+    os.path.join(HOME, ".local/share/applications"),
+    os.path.join(HOME, ".local/share/flatpak/exports/share/applications"),
+    "/var/lib/flatpak/exports/share/applications",
+    "/usr/share/applications",
+]
+
+
+# ---------------------------------------------------------------- XCursor IO
+
+def read_xcursor(path):
+    """-> {nominal: (w, h, xhot, yhot, straight-RGBA bytes)} (first frame)."""
+    data = open(path, "rb").read()
+    magic, _, _, ntoc = struct.unpack_from("<4sIII", data, 0)
+    if magic != b"Xcur":
+        raise ValueError(path)
+    out = {}
+    off = 16
+    for _ in range(ntoc):
+        typ, sub, pos = struct.unpack_from("<III", data, off)
+        off += 12
+        if typ != 0xFFFD0002 or sub in out:
+            continue
+        _, _, _, _, w, h, xh, yh, _ = struct.unpack_from("<9I", data, pos)
+        px = bytearray(w * h * 4)
+        for i, (p,) in enumerate(struct.iter_unpack("<I", data[pos + 36:pos + 36 + w * h * 4])):
+            a = p >> 24
+            if a:  # unpremultiply to straight alpha for PIL compositing
+                px[i * 4] = min(255, ((p >> 16) & 0xFF) * 255 // a)
+                px[i * 4 + 1] = min(255, ((p >> 8) & 0xFF) * 255 // a)
+                px[i * 4 + 2] = min(255, (p & 0xFF) * 255 // a)
+                px[i * 4 + 3] = a
+        out[sub] = (w, h, xh, yh, bytes(px))
+    return out
+
+
+def write_xcursor(path, images):
+    """images: list of (nominal, w, h, xhot, yhot, delay_ms, RGBA bytes)."""
+    chunks = []
+    for nominal, w, h, xh, yh, delay, rgba in images:
+        px = bytearray()
+        for i in range(w * h):
+            r, g, b, a = rgba[i * 4:i * 4 + 4]
+            px += struct.pack("<I", (a << 24) | (r * a // 255 << 16)
+                              | (g * a // 255 << 8) | (b * a // 255))
+        hdr = struct.pack("<9I", 36, 0xFFFD0002, nominal, 1, w, h, xh, yh, delay)
+        chunks.append((nominal, hdr + px))
+    pos = 16 + 12 * len(chunks)
+    toc = b""
+    body = b""
+    for nominal, chunk in chunks:
+        toc += struct.pack("<III", 0xFFFD0002, nominal, pos)
+        pos += len(chunk)
+        body += chunk
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(struct.pack("<4sIII", b"Xcur", 16, 0x10000, len(chunks)))
+        f.write(toc + body)
+    os.replace(tmp, path)
+
+
+# ------------------------------------------------------------ icon resolving
+
+def icon_name_for(cmd):
+    argv = list(cmd)
+    while argv and os.path.basename(argv[0]) in ("uwsm", "app", "--", "env"):
+        argv.pop(0)
+    if not argv:
+        return None
+    if any(os.path.basename(a) == "flatpak" for a in argv[:2]):
+        for a in argv:
+            if not a.startswith("-") and "/" not in a and a.count(".") >= 2:
+                return a
+        return None
+    base = os.path.basename(argv[0])
+    for d in DESKTOP_DIRS:
+        for f in glob.glob(os.path.join(d, "*.desktop")):
+            try:
+                text = open(f, errors="replace").read()
+            except OSError:
+                continue
+            m = re.search(r"^Exec=(\S+)", text, re.M)
+            if m and os.path.basename(m.group(1)) == base:
+                mi = re.search(r"^Icon=(.+)$", text, re.M)
+                if mi:
+                    return mi.group(1).strip()
+    return re.sub(r"\.(appimage|AppImage)$", "", base)
+
+
+def icon_file_for(name):
+    if not name:
+        return None
+    if os.path.isabs(name) and os.path.exists(name):
+        return name
+    pngs, svgs = [], []
+    for d in ICON_DIRS:
+        for f in glob.glob(os.path.join(d, "**", name + ".*"), recursive=True):
+            if f.endswith(".png"):
+                m = re.search(r"/(\d+)x\1/", f)
+                pngs.append((int(m.group(1)) if m else 0, f))
+            elif f.endswith(".svg"):
+                svgs.append(f)
+    good = [p for p in pngs if 48 <= p[0] <= 256]
+    if good:
+        return min(good)[1]
+    if pngs:
+        return max(pngs)[1]
+    return svgs[0] if svgs else None
+
+
+def load_icon(path, size):
+    from PIL import Image
+    if path.endswith(".svg"):
+        raster = os.path.join(CACHE, "icon-raster.png")
+        r = subprocess.run(["magick", "-background", "none", "-density", "192",
+                            path, "-resize", f"{size}x{size}", raster],
+                           capture_output=True)
+        if r.returncode != 0 or not os.path.exists(raster):
+            return None
+        path = raster
+    try:
+        img = Image.open(path).convert("RGBA")
+    except OSError:
+        return None
+    img.thumbnail((size, size), Image.LANCZOS)
+    canvas = Image.new("RGBA", (size, size))
+    canvas.paste(img, ((size - img.width) // 2, (size - img.height) // 2))
+    return canvas
+
+
+# --------------------------------------------------------- cursor generation
+
+def build_cursor(icon_file, out_path):
+    from PIL import Image, ImageDraw
+    arrows = read_xcursor(ARROW)
+    images = []
+    for nominal in (24, 48):
+        aw, ah, axh, ayh, apx = arrows[nominal]
+        arrow = Image.frombytes("RGBA", (aw, ah), apx)
+        k = nominal // 24                     # 1 or 2
+        canvas_sz = 56 * k
+        icon_sz = 22 * k
+        cx = cy = 34 * k                      # ring/icon center
+        radius = 17.5 * k
+        stroke = 3.5 * k
+        icon = load_icon(icon_file, icon_sz) if icon_file else None
+        for f in range(FRAMES):
+            im = Image.new("RGBA", (canvas_sz, canvas_sz))
+            if icon:
+                im.paste(icon, (cx - icon_sz // 2, cy - icon_sz // 2), icon)
+            ss = 4                            # supersample the ring
+            ring = Image.new("RGBA", (canvas_sz * ss, canvas_sz * ss))
+            d = ImageDraw.Draw(ring)
+            box = [(cx - radius) * ss, (cy - radius) * ss,
+                   (cx + radius) * ss, (cy + radius) * ss]
+            d.arc(box, 0, 360, fill=TRACK, width=int(stroke * ss))
+            start = f * 360 // FRAMES
+            d.arc(box, start, start + 300, fill=ACCENT, width=int(stroke * ss))
+            im.alpha_composite(ring.resize((canvas_sz, canvas_sz),
+                                           Image.LANCZOS))
+            im.alpha_composite(arrow, (0, 0))
+            images.append((nominal, canvas_sz, canvas_sz, axh, ayh,
+                           DELAY_MS, im.tobytes()))
+    write_xcursor(out_path, images)
+
+
+def ensure_cursor(icon_name):
+    os.makedirs(CACHE, exist_ok=True)
+    key = re.sub(r"[^A-Za-z0-9_.-]", "_", icon_name or "generic")
+    out = os.path.join(CACHE, key + ".xcur")
+    if not os.path.exists(out):    # icon lookup walks icon themes: cache hard
+        build_cursor(icon_file_for(icon_name), out)
+    return out
+
+
+def install_theme(cursor_file):
+    cur = os.path.join(THEME_DIR, "cursors")
+    os.makedirs(cur, exist_ok=True)
+    with open(os.path.join(THEME_DIR, "index.theme"), "w") as f:
+        f.write("[Icon Theme]\nName=launch-feedback\n"
+                f"Inherits={NORMAL_THEME}\n")
+    for name in ("default", "left_ptr"):
+        link = os.path.join(cur, name)
+        tmp = link + ".tmp"
+        if os.path.lexists(tmp):
+            os.remove(tmp)
+        os.symlink(cursor_file, tmp)
+        os.replace(tmp, link)
+
+
+# ------------------------------------------------- labwc cursor-theme switch
+
+def set_theme(theme):
+    lines = []
+    if os.path.exists(ENV_FILE):
+        lines = [l for l in open(ENV_FILE).read().splitlines()
+                 if not l.startswith("XCURSOR_THEME=")]
+    lines.append(f"XCURSOR_THEME={theme}")
+    tmp = ENV_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(tmp, ENV_FILE)
+    subprocess.run(["pkill", "-HUP", "-x", "labwc"], check=False)
+
+
+class Refcount:
+    """Concurrent launches share the busy cursor; last one out reverts it."""
+
+    def __init__(self):
+        os.makedirs(CACHE, exist_ok=True)
+        self.f = open(os.path.join(CACHE, ".refcount"), "a+")
+
+    def _locked(self, delta):
+        fcntl.flock(self.f, fcntl.LOCK_EX)
+        try:
+            self.f.seek(0)
+            n = max(0, int(self.f.read() or 0))
+            # a SIGKILLed holder can strand the count; TIMEOUT bounds real use
+            if n and time.time() - os.fstat(self.f.fileno()).st_mtime > 30:
+                n = 0
+            n = max(0, n + delta)
+            self.f.seek(0)
+            self.f.truncate()
+            self.f.write(str(n))
+            self.f.flush()
+            return n
+        finally:
+            fcntl.flock(self.f, fcntl.LOCK_UN)
+
+    def acquire(self):
+        return self._locked(+1)
+
+    def release(self):
+        return self._locked(-1)
+
+
+# ------------------------------------------------------ new-toplevel watcher
+
+class TopLevelWatch:
+    """Minimal zwlr_foreign_toplevel_manager_v1 client: reports new windows."""
+
+    def __init__(self):
+        xdg = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+        disp = os.environ.get("WAYLAND_DISPLAY", "wayland-0")
+        path = disp if disp.startswith("/") else os.path.join(xdg, disp)
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(path)
+        self.buf = b""
+        self.next_id = 2
+        self.manager = None
+        self.pending_cb = None
+        self.new_toplevel = False
+        self.registry = self.new_id()
+        self.send(1, 1, struct.pack("<I", self.registry))
+        self.ids = {1: "display", self.registry: "registry"}
+        self.roundtrip()          # globals -> bind manager
+        if self.manager is None:
+            raise RuntimeError("no zwlr_foreign_toplevel_manager_v1")
+        self.roundtrip()          # drain initial toplevel burst
+        self.new_toplevel = False
+
+    def new_id(self):
+        i = self.next_id
+        self.next_id += 1
+        return i
+
+    def send(self, obj, opcode, args=b""):
+        size = 8 + len(args)
+        self.sock.sendall(struct.pack("<II", obj, (size << 16) | opcode) + args)
+
+    def read_msg(self):
+        while len(self.buf) < 8:
+            d = self.sock.recv(65536)
+            if not d:
+                raise EOFError
+            self.buf += d
+        obj, sz_op = struct.unpack_from("<II", self.buf)
+        size, op = sz_op >> 16, sz_op & 0xFFFF
+        while len(self.buf) < size:
+            d = self.sock.recv(65536)
+            if not d:
+                raise EOFError
+            self.buf += d
+        payload = self.buf[8:size]
+        self.buf = self.buf[size:]
+        return obj, op, payload
+
+    def dispatch(self, obj, op, payload):
+        kind = self.ids.get(obj)
+        if kind == "display" and op == 0:
+            raise RuntimeError("wayland error")
+        if kind == "registry" and op == 0:
+            name, = struct.unpack_from("<I", payload)
+            slen, = struct.unpack_from("<I", payload, 4)
+            iface = payload[8:8 + slen - 1].decode()
+            if iface == "zwlr_foreign_toplevel_manager_v1":
+                self.manager = self.new_id()
+                self.ids[self.manager] = "manager"
+                arg = payload[4:4 + ((4 + slen + 3) & ~3)]
+                self.send(self.registry, 0,
+                          struct.pack("<I", name) + arg
+                          + struct.pack("<II", 1, self.manager))
+        elif kind == "callback" and op == 0 and obj == self.pending_cb:
+            self.pending_cb = None
+        elif kind == "manager" and op == 0:   # toplevel: a new window mapped
+            hid, = struct.unpack_from("<I", payload)
+            self.ids[hid] = "handle"
+            self.new_toplevel = True
+
+    def roundtrip(self):
+        cb = self.new_id()
+        self.ids[cb] = "callback"
+        self.pending_cb = cb
+        self.send(1, 0, struct.pack("<I", cb))
+        while self.pending_cb is not None:
+            self.dispatch(*self.read_msg())
+
+    def wait_new(self, deadline):
+        while not self.new_toplevel:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                return False
+            self.sock.settimeout(left)
+            try:
+                msg = self.read_msg()
+            except (socket.timeout, EOFError):
+                return self.new_toplevel
+            self.dispatch(*msg)
+        return True
+
+
+# ------------------------------------------------------------------- main
+
+def main():
+    args = sys.argv[1:]
+    icon_override = None
+    if args and args[0] == "--icon":
+        icon_override = args[1]
+        args = args[2:]
+    if args and args[0] == "--":
+        args = args[1:]
+    if not args:
+        sys.exit(__doc__)
+
+    try:
+        watch = TopLevelWatch()
+    except Exception:
+        watch = None
+
+    subprocess.Popen(["uwsm", "app", "-t", "service", "--"] + args, start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
+    started = time.monotonic()
+
+    try:
+        cursor = ensure_cursor(icon_override or icon_name_for(args))
+        install_theme(cursor)
+    except Exception:
+        return                                 # never let feedback break launch
+
+    if watch and watch.new_toplevel:
+        return                                 # window already up: skip flip
+    ref = Refcount()
+    if ref.acquire() == 1:
+        set_theme("launch-feedback")
+    try:
+        if watch:
+            watch.wait_new(started + TIMEOUT)
+        else:
+            time.sleep(TIMEOUT)
+        # brief grace so the flip isn't a subliminal blink on fast apps
+        elapsed = time.monotonic() - started
+        if elapsed < 0.8:
+            time.sleep(0.8 - elapsed)
+    finally:
+        if ref.release() == 0:
+            set_theme(NORMAL_THEME)
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
+    main()

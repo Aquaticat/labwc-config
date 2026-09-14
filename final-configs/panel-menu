@@ -1,0 +1,16 @@
+#!/bin/sh
+# Right-click menu for empty waybar space — KDE panel-context-menu analog.
+choice=$(printf '%s\n' \
+    "Audio settings" \
+    "Lock screen" \
+    "Manage session services" \
+    "Restart panel" \
+    "Log out" \
+    | fuzzel --dmenu -p "panel: ")
+case "$choice" in
+    "Audio settings")           uwsm app -- pavucontrol ;;
+    "Lock screen")              swaylock -f ;;
+    "Manage session services")  uuctl fuzzel ;;
+    "Restart panel")            pkill -x sfwbar; sleep 0.5; uwsm app -t service -- sfwbar ;;
+    "Log out")                  uwsm stop ;;
+esac

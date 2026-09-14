@@ -1,0 +1,16 @@
+#!/bin/sh
+# launch-new <app_id> — start a new instance of the app behind a taskbar item.
+# Used by the sfwbar taskbar context menu ("New instance").
+id=$1
+[ -n "$id" ] || exit 1
+for dir in "$HOME/.local/share/applications" /usr/share/applications; do
+    [ -f "$dir/$id.desktop" ] && exec uwsm app -t service -- gtk-launch "$id"
+done
+# appid casing often differs from the desktop file name
+f=$({ ls "$HOME/.local/share/applications" /usr/share/applications 2>/dev/null; } \
+    | grep -ix "$id\.desktop" | head -1)
+[ -n "$f" ] && exec uwsm app -t service -- gtk-launch "${f%.desktop}"
+# last resort: appid as a command
+command -v "$id" >/dev/null 2>&1 && exec uwsm app -t service -- "$id"
+notify-send "New instance" "No launcher found for '$id'" 2>/dev/null
+exit 1
