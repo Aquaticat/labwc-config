@@ -88,9 +88,11 @@ that claim needs measuring before relying on it.
 - A positive control with a deliberate delay must move the measured interval by that delay.
 - Run-to-run spread is measured before comparing designs.
 
-## Open questions for the user
+## Application launches
 
-- Whether chains that end in a third-party application window,
-  such as New instance or launching Dolphin,
-  count as hot paths ending at that window,
-  or end at the first feedback surface this repository controls.
+Decided by the user on 2026-09-14:
+a chain that ends in a third-party application window is a hot path that ends at the first feedback this repository controls,
+such as the busy cursor.
+The application's own startup is measured and reported but not bound by the budget.
+The cursor flip in `launch-feedback` is therefore a QuickJS-ng hot path,
+while its Wayland window watcher stays on Deno.
