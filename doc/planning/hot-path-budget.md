@@ -122,6 +122,17 @@ a `WAYLAND_DEBUG=client` line printed `[23:37:20.527503]` between two `date +%s.
   so it can check for and spawn fuzzel itself,
   with no separate toggle process on that chain.
 
+## Decisions after the VM measurements
+
+Decided by the user on 2026-09-14:
+
+- Hot-path helpers start fuzzel directly,
+  not through `uwsm app`,
+  `uwsm-app`,
+  or `systemd-run`.
+  Applications launched from the launcher still get their own UWSM units.
+- Faster launchers are researched and measured in the VM with the same harness before fuzzel is kept or replaced.
+
 ## Measurement method to validate
 
 - **Input time**:
