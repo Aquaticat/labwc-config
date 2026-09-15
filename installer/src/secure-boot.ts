@@ -203,6 +203,11 @@ export async function configureSecureBoot({ machine, shell, hooks, mokPassword, 
       '/var/lib/sbctl/keys/db/db.der',
     ],),
   },);
+  // MokManager drops an import request nobody confirms within its timeout; this copy allows enrolling from disk instead.
+  await shell.run({
+    description: 'keep the MOK certificate on the ESP',
+    argv: inTarget(['install', '-D', '--mode=644', '/var/lib/sbctl/keys/db/db.der', '/boot/EFI/BOOT/labwc-config-mok.der',],),
+  },);
   await shell.run({
     description: 'install shim as the fallback loader',
     argv: inTarget(['install', '-D', '--mode=644', '/usr/share/shim-signed/shimx64.efi', '/boot/EFI/BOOT/BOOTX64.EFI',],),
