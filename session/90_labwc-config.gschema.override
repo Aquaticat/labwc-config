@@ -1,0 +1,7 @@
+# Dark theme defaults for Wayland GTK applications, which read GSettings instead of settings.ini.
+[org.gnome.desktop.interface]
+gtk-theme='Breeze-Dark'
+icon-theme='breeze-dark'
+color-scheme='prefer-dark'
+cursor-theme='breeze_cursors'
+cursor-size=24

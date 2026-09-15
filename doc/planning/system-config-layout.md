@@ -43,15 +43,20 @@ and from sfwbar's `main` branch:
 - Install Material Symbols under `/usr/share/fonts/labwc-config/`.
 - Install unit drop-ins under `/usr/lib/systemd/system/` and `/usr/lib/systemd/user/`.
 
+## Resolved checks
+
+- swaync 0.12.6 reads `style.css` and `config.json` from the user directory,
+  then every `XDG_CONFIG_DIRS` entry,
+  so its default installs under `/usr/share/labwc-config/xdg/swaync/`.
+- GTK 3 and GTK 4 read `settings.ini` from every `XDG_CONFIG_DIRS` entry,
+  but `gtk.css` only from the user directory,
+  so the installer imports the packaged `gtk.css` overrides from the user's file.
+- The environment is prepended by `/etc/xdg/uwsm/env.d/labwc-config`,
+  which uwsm sources at session start.
+- The getty autologin drop-in names a user,
+  so the installer writes it.
+- `pacman-repository.md` lists where the package installs each file.
+
 ## Open checks
 
-- swaync:
-  confirm from source whether it searches `XDG_CONFIG_DIRS` before its compiled-in `/etc/xdg` path.
-- GTK:
-  `gtk.css` is read from the user configuration directory only,
-  so the decoration overrides need another mechanism;
-  `settings.ini` lookup through `XDG_CONFIG_DIRS` needs confirming from GTK source.
-- The getty autologin drop-in names a user;
-  a username cannot be hardcoded in a package,
-  so the installer writes that drop-in instead.
 - Every environment change above must be verified in the rehearsal VM by reading the running session's environment.

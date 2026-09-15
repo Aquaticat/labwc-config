@@ -1,0 +1,120 @@
+# Maintainer: Aquaticat
+#
+# Builds the labwc session from this checkout, not from a download:
+# CI runs makepkg in packaging/ of the commit it publishes.
+# Every file lands under /usr or /etc, so a root snapshot rolls the whole session back.
+
+pkgbase=labwc-config
+pkgname=(labwc-config-launcher labwc-config-helpers labwc-config)
+pkgver=0
+pkgrel=1
+pkgdesc='Aquaticat labwc session'
+arch=(x86_64)
+url='https://github.com/Aquaticat/labwc-config'
+license=(MIT)
+makedepends=(cargo deno git)
+options=(!debug !lto)
+
+_repo="$(realpath "${startdir}/..")"
+
+# Keeps the build machine's paths out of the binaries' panic locations.
+_cargo_environment() {
+  export CARGO_HOME="${srcdir}/cargo-home"
+  export CARGO_TARGET_DIR="${srcdir}/target"
+  export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=${CARGO_HOME}=/cargo --remap-path-prefix=${_repo}=/labwc-config"
+}
+
+pkgver() {
+  printf 'r%s.%s' "$(git -C "${_repo}" rev-list --count HEAD)" "$(git -C "${_repo}" rev-parse --short=12 HEAD)"
+}
+
+prepare() {
+  _cargo_environment
+  cargo fetch --locked --manifest-path "${_repo}/launcher/Cargo.toml"
+}
+
+build() {
+  _cargo_environment
+  cargo build --frozen --release --manifest-path "${_repo}/launcher/Cargo.toml"
+
+  export DENO_DIR="${srcdir}/deno"
+  deno run --config "${_repo}/deno.json" --allow-read --allow-write --allow-run --allow-env \
+    "${_repo}/helpers/build.ts" --out-dir "${srcdir}/helpers"
+}
+
+check() {
+  _cargo_environment
+  cargo test --frozen --release --manifest-path "${_repo}/launcher/Cargo.toml"
+
+  export DENO_DIR="${srcdir}/deno"
+  local test_file
+  for test_file in helpers/src/panel-menu.unit.test.ts helpers/src/screenshot-path.unit.test.ts helpers/src/utf8.unit.test.ts; do
+    deno run --config "${_repo}/deno.json" --allow-read --allow-env --allow-sys "--allow-write=${srcdir}" "${_repo}/${test_file}"
+  done
+}
+
+package_labwc-config-launcher() {
+  pkgdesc='Resident launcher, dmenu, and workspace pager for the labwc session'
+  depends=(gcc-libs glibc libxkbcommon fontconfig freetype2 labwc uwsm libnotify)
+  license=(MIT OFL-1.1)
+
+  local binary
+  for binary in labwc-launcherd labwc-launcher labwc-pager; do
+    install -D --mode=755 "${srcdir}/target/release/${binary}" "${pkgdir}/usr/bin/${binary}"
+  done
+  install -D --mode=644 "${_repo}/user-unit/labwc-launcherd.service" "${pkgdir}/usr/lib/systemd/user/labwc-launcherd.service"
+  install -D --mode=644 "${_repo}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -D --mode=644 "${_repo}/launcher/daemon/font/InterVariable-LICENSE.txt" "${pkgdir}/usr/share/licenses/${pkgname}/InterVariable-LICENSE.txt"
+}
+
+package_labwc-config-helpers() {
+  pkgdesc='Panel menu, clipboard picker, and screenshot helpers for the labwc session'
+  depends=(quickjs-ng labwc-config-launcher cliphist wl-clipboard grim slurp swappy swaylock pavucontrol uwsm systemd)
+
+  local helper
+  for helper in labwc-panel-menu labwc-clipboard-pick labwc-screenshot labwc-screenshot-region; do
+    install -D --mode=755 "${srcdir}/helpers/${helper}" "${pkgdir}/usr/bin/${helper}"
+  done
+  install -D --mode=644 "${_repo}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+
+package_labwc-config() {
+  pkgdesc='Configuration, theme, and user units for the labwc session'
+  depends=(labwc-config-launcher labwc-config-helpers labwc uwsm sfwbar xwayland-satellite swaync
+    polkit-kde-agent cliphist wl-clipboard inter-font breeze breeze-gtk plasma-integration)
+  license=(MIT Apache-2.0)
+  backup=(etc/xdg/uwsm/env.d/labwc-config)
+
+  local share="${pkgdir}/usr/share/labwc-config"
+  install -D --mode=644 "${_repo}/config/labwc/rc.xml" "${share}/xdg/labwc/rc.xml"
+  install -D --mode=644 "${_repo}/config/swaync/style.css" "${share}/xdg/swaync/style.css"
+  install -D --mode=644 "${_repo}/config/gtk-3.0/settings.ini" "${share}/xdg/gtk-3.0/settings.ini"
+  install -D --mode=644 "${_repo}/config/gtk-4.0/settings.ini" "${share}/xdg/gtk-4.0/settings.ini"
+  # GTK reads gtk.css from the user configuration directory only; the installer imports these from there.
+  install -D --mode=644 "${_repo}/config/gtk-3.0/gtk.css" "${share}/gtk/gtk-3.0.css"
+  install -D --mode=644 "${_repo}/config/gtk-4.0/gtk.css" "${share}/gtk/gtk-4.0.css"
+  local sfwbar_file
+  for sfwbar_file in sfwbar.config cal.widget cell-focused.svg cell-normal.svg; do
+    install -D --mode=644 "${_repo}/config/sfwbar/${sfwbar_file}" "${share}/data/sfwbar/${sfwbar_file}"
+  done
+
+  install -D --mode=644 "${_repo}/config/theme/PureBlack/openbox-3/themerc" "${pkgdir}/usr/share/themes/PureBlack/openbox-3/themerc"
+  install -D --mode=644 "${_repo}/config/font/MaterialSymbolsOutlined.ttf" "${pkgdir}/usr/share/fonts/labwc-config/MaterialSymbolsOutlined.ttf"
+  install -D --mode=644 "${_repo}/config/font/LICENSE-MaterialSymbols-Apache-2.0.txt" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE-MaterialSymbols-Apache-2.0.txt"
+  install -D --mode=644 "${_repo}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+  install -D --mode=644 "${_repo}/session/uwsm-env" "${pkgdir}/etc/xdg/uwsm/env.d/labwc-config"
+  install -D --mode=644 "${_repo}/session/90_labwc-config.gschema.override" "${pkgdir}/usr/share/glib-2.0/schemas/90_labwc-config.gschema.override"
+
+  local units="${pkgdir}/usr/lib/systemd/user"
+  local unit
+  for unit in labwc-panel.service labwc-clipboard-history.service labwc-polkit-agent.service; do
+    install -D --mode=644 "${_repo}/user-unit/${unit}" "${units}/${unit}"
+  done
+  install -D --mode=644 "${_repo}/user-unit/xwayland-satellite.service.d/override.conf" "${units}/xwayland-satellite.service.d/labwc-config.conf"
+  # The session's services start with the graphical session for every user, without a per-user enable step.
+  install -d "${units}/graphical-session.target.wants"
+  for unit in labwc-launcherd.service labwc-panel.service labwc-clipboard-history.service labwc-polkit-agent.service xwayland-satellite.service; do
+    ln --symbolic "../${unit}" "${units}/graphical-session.target.wants/${unit}"
+  done
+}

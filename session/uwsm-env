@@ -1,0 +1,19 @@
+# Installed as /etc/xdg/uwsm/env.d/labwc-config and sourced by uwsm when the graphical session starts.
+# Session defaults ship under /usr/share/labwc-config, ahead of the standard directories;
+# a file under ~/.config still overrides them.
+export XDG_CONFIG_DIRS="/usr/share/labwc-config/xdg:${XDG_CONFIG_DIRS:-/etc/xdg}"
+# sfwbar reads its system defaults from XDG_DATA_DIRS, not XDG_CONFIG_DIRS.
+export XDG_DATA_DIRS="/usr/share/labwc-config/data:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# Qt applications take the Breeze black color scheme through plasma-integration.
+export QT_QPA_PLATFORMTHEME=kde
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export XCURSOR_THEME=breeze_cursors
+export XCURSOR_SIZE=24
+
+# X11 applications use xwayland-satellite on :12;
+# labwc's own Xwayland is disabled by pointing wlroots at a path that does not exist.
+export WLR_XWAYLAND=/nonexistent-labwc-config-xwayland-disabled
+export DISPLAY=:12
+# Java applications render blank windows under xwayland-satellite without this.
+export _JAVA_AWT_WM_NONREPARENTING=1

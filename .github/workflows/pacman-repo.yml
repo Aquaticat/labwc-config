@@ -1,0 +1,90 @@
+# Builds the labwc session packages on every push and pull request,
+# and on main publishes them as the signed labwc-config pacman repository
+# in the rolling GitHub release tagged "repo".
+#
+# Publishing needs two settings the repository owner adds:
+# - secret PACMAN_SIGNING_SUBKEY: the signing subkey, exported with
+#   gpg --armor --export-secret-subkeys KEY_ID! ; the primary key stays offline.
+# - variable PACMAN_SIGNING_KEY_ID: that subkey's long ID or fingerprint.
+# Without them the build still runs and publishing is skipped with a notice.
+name: pacman repository
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install build tools
+        run: pacman --sync --refresh --sysupgrade --noconfirm --needed git rust deno
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and test the packages
+        run: |
+          useradd --create-home builder
+          chown --recursive builder "${GITHUB_WORKSPACE}"
+          su builder --command "git config --global --add safe.directory '${GITHUB_WORKSPACE}' && cd '${GITHUB_WORKSPACE}/packaging' && PKGDEST='${GITHUB_WORKSPACE}/out' makepkg --nodeps --noconfirm"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: out/*.pkg.tar.zst
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    permissions:
+      contents: write
+    env:
+      PACMAN_SIGNING_SUBKEY: ${{ secrets.PACMAN_SIGNING_SUBKEY }}
+      PACMAN_SIGNING_KEY_ID: ${{ vars.PACMAN_SIGNING_KEY_ID }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check signing settings
+        id: signing
+        run: |
+          if [ -z "${PACMAN_SIGNING_SUBKEY}" ] || [ -z "${PACMAN_SIGNING_KEY_ID}" ]; then
+            echo '::notice::PACMAN_SIGNING_SUBKEY or PACMAN_SIGNING_KEY_ID is not set; skipping publishing.'
+            echo 'ready=false' >> "${GITHUB_OUTPUT}"
+          else
+            echo 'ready=true' >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Install publishing tools
+        if: steps.signing.outputs.ready == 'true'
+        run: pacman --sync --refresh --sysupgrade --noconfirm --needed git github-cli gnupg deno
+      - uses: actions/checkout@v4
+        if: steps.signing.outputs.ready == 'true'
+      - uses: actions/download-artifact@v4
+        if: steps.signing.outputs.ready == 'true'
+        with:
+          name: packages
+          path: packages
+      - name: Sign and assemble the repository
+        if: steps.signing.outputs.ready == 'true'
+        run: |
+          export GNUPGHOME="$(mktemp --directory)"
+          printf '%s\n' "${PACMAN_SIGNING_SUBKEY}" | gpg --batch --import
+          deno run --allow-read --allow-write --allow-run --allow-env --allow-sys packaging/assemble-repo.ts --packages packages --output repo --key "${PACMAN_SIGNING_KEY_ID}!"
+      - name: Publish to the repo release
+        if: steps.signing.outputs.ready == 'true'
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          gh release view repo > /dev/null 2>&1 || gh release create repo --title 'pacman repository' --notes 'Signed labwc-config pacman repository. See doc/planning/pacman-repository.md.' --latest=false
+          # Packages first, then the database, so a client never reads a database naming a missing package.
+          gh release upload repo --clobber repo/*.pkg.tar.zst repo/*.pkg.tar.zst.sig
+          gh release upload repo --clobber repo/labwc-config.db repo/labwc-config.db.sig repo/labwc-config.files repo/labwc-config.files.sig
+          gh release view repo --json assets --jq '.assets[].name' | while read -r asset; do
+            [ -e "repo/${asset}" ] || gh release delete-asset repo "${asset}" --yes
+          done
