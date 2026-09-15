@@ -97,6 +97,24 @@ await describe({
       },
     },),
     it({
+      name: 'refuses repository fields that would add pacman.conf lines or trust an unintended key',
+      fn: async () => {
+        const repository = DESKTOP_JSON.repository;
+        expect(() => parseWith({ repository: { ...repository, server: 'https://example.com\n[evil]', }, },)).toThrow(
+          InvalidMachineError,
+        );
+        expect(() => parseWith({ repository: { ...repository, server: 'http://example.com/repo', }, },)).toThrow(
+          InvalidMachineError,
+        );
+        expect(() => parseWith({ repository: { ...repository, keyFingerprint: 'ABCD', }, },)).toThrow(InvalidMachineError,);
+        expect(() => parseWith({ repository: { ...repository, keyFingerprint: `${'A'.repeat(39,)}\n`, }, },)).toThrow(
+          InvalidMachineError,
+        );
+        expect(parseWith({ repository: { ...repository, server: 'file:///var/tmp/lcrepo', }, },).repository.server,)
+          .toEqual('file:///var/tmp/lcrepo',);
+      },
+    },),
+    it({
       name: 'refuses an unknown platform and a missing repository',
       fn: async () => {
         expect(() => parseWith({ platform: 'kvm', },)).toThrow(InvalidMachineError,);

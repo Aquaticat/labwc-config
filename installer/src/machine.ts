@@ -71,6 +71,15 @@ const HOSTNAME_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz0123456789-';
 /** Characters allowed in an IANA time zone name, which becomes a path under `/usr/share/zoneinfo`. */
 const TIMEZONE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/_+-';
 
+/** Characters allowed in a repository URL: unreserved and reserved URL characters, without spaces or quotes. */
+const URL_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~:/?#[]@!$&()*+,;=%';
+
+/** Characters of an OpenPGP fingerprint as gpg prints it. */
+const HEX_CHARACTERS = '0123456789ABCDEF';
+
+/** Length of a version 4 OpenPGP fingerprint in hexadecimal. */
+const FINGERPRINT_LENGTH = 40;
+
 /** Longest username useradd accepts. */
 const USERNAME_MAXIMUM_LENGTH = 32;
 
@@ -174,6 +183,19 @@ export function parseMachine(parsed: unknown,): Machine {
     throw new InvalidMachineError('timezone must be an IANA name such as America/New_York',);
   }
   const repository = toRecord({ value: value['repository'], name: 'repository', },);
+  const server = requiredString({ record: repository, key: 'server', },);
+  // The server line is written into pacman.conf, so it must stay one line of a URL scheme pacman fetches.
+  if (!(server.startsWith('https://',) || server.startsWith('file:///',)) || !onlyCharacters({ text: server, allowed: URL_CHARACTERS, },)) {
+    throw new InvalidMachineError('repository.server must be an https:// or file:/// URL without spaces or line breaks',);
+  }
+  const keyFingerprint = requiredString({ record: repository, key: 'keyFingerprint', },);
+  if (keyFingerprint.length !== FINGERPRINT_LENGTH || !onlyCharacters({ text: keyFingerprint, allowed: HEX_CHARACTERS, },)) {
+    throw new InvalidMachineError('repository.keyFingerprint must be a 40-character uppercase hexadecimal fingerprint',);
+  }
+  const publicKeyFile = requiredString({ record: repository, key: 'publicKeyFile', },);
+  if (!publicKeyFile.startsWith('/',)) {
+    throw new InvalidMachineError('repository.publicKeyFile must be an absolute path',);
+  }
   const sshAuthorizedKey = value['sshAuthorizedKey'];
   if (
     sshAuthorizedKey !== undefined
@@ -188,9 +210,9 @@ export function parseMachine(parsed: unknown,): Machine {
     timezone,
     platform: platform as Platform,
     repository: {
-      server: requiredString({ record: repository, key: 'server', },),
-      publicKeyFile: requiredString({ record: repository, key: 'publicKeyFile', },),
-      keyFingerprint: requiredString({ record: repository, key: 'keyFingerprint', },),
+      server,
+      publicKeyFile,
+      keyFingerprint,
     },
     ...(sshAuthorizedKey === undefined ? {} : { sshAuthorizedKey, }),
   };
