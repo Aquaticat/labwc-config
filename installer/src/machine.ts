@@ -33,6 +33,12 @@ export type Machine = {
   readonly repository: PackageRepository;
   /** OpenSSH public key allowed to log in as the user; absent means no SSH server. */
   readonly sshAuthorizedKey?: string;
+  /**
+   sbctl firmware quirk IDs, such as `FQ0001`, whose mitigation the owner applied in the firmware menu.
+   sbctl detects quirks from the board model and firmware date,
+   so it keeps reporting them after the mitigation.
+   */
+  readonly acknowledgedFirmwareQuirks?: readonly string[];
 };
 
 /** Secrets the installation needs; they reach commands only through standard input or the environment. */
@@ -79,6 +85,12 @@ const HEX_CHARACTERS = '0123456789ABCDEF';
 
 /** Length of a version 4 OpenPGP fingerprint in hexadecimal. */
 const FINGERPRINT_LENGTH = 40;
+
+/** Prefix of every sbctl firmware quirk ID. */
+const QUIRK_PREFIX = 'FQ';
+
+/** Digits allowed after the quirk prefix. */
+const DIGIT_CHARACTERS = '0123456789';
 
 /** Longest username useradd accepts. */
 const USERNAME_MAXIMUM_LENGTH = 32;
@@ -203,6 +215,17 @@ export function parseMachine(parsed: unknown,): Machine {
   ) {
     throw new InvalidMachineError('sshAuthorizedKey must be one line when present',);
   }
+  const acknowledgedFirmwareQuirks = value['acknowledgedFirmwareQuirks'];
+  if (
+    acknowledgedFirmwareQuirks !== undefined
+    && (!Array.isArray(acknowledgedFirmwareQuirks,)
+      || !acknowledgedFirmwareQuirks.every((quirk,) =>
+        typeof quirk === 'string' && quirk.startsWith(QUIRK_PREFIX,) && quirk.length > QUIRK_PREFIX.length
+        && onlyCharacters({ text: quirk.slice(QUIRK_PREFIX.length,), allowed: DIGIT_CHARACTERS, },)
+      ))
+  ) {
+    throw new InvalidMachineError('acknowledgedFirmwareQuirks must be a list of sbctl quirk IDs such as FQ0001',);
+  }
   return {
     targetDisk,
     hostname,
@@ -215,5 +238,6 @@ export function parseMachine(parsed: unknown,): Machine {
       keyFingerprint,
     },
     ...(sshAuthorizedKey === undefined ? {} : { sshAuthorizedKey, }),
+    ...(acknowledgedFirmwareQuirks === undefined ? {} : { acknowledgedFirmwareQuirks, }),
   };
 }

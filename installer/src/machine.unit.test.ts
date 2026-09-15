@@ -97,6 +97,15 @@ await describe({
       },
     },),
     it({
+      name: 'accepts only sbctl quirk IDs as acknowledged firmware quirks',
+      fn: async () => {
+        expect(parseWith({ acknowledgedFirmwareQuirks: ['FQ0001',], },).acknowledgedFirmwareQuirks,).toEqual(['FQ0001',],);
+        expect(() => parseWith({ acknowledgedFirmwareQuirks: 'FQ0001', },)).toThrow(InvalidMachineError,);
+        expect(() => parseWith({ acknowledgedFirmwareQuirks: ['FQ',], },)).toThrow(InvalidMachineError,);
+        expect(() => parseWith({ acknowledgedFirmwareQuirks: ['all',], },)).toThrow(InvalidMachineError,);
+      },
+    },),
+    it({
       name: 'refuses repository fields that would add pacman.conf lines or trust an unintended key',
       fn: async () => {
         const repository = DESKTOP_JSON.repository;

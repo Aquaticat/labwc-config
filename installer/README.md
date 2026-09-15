@@ -45,6 +45,12 @@ The installer reads a JSON file:
 `sshAuthorizedKey` is optional;
 with it,
 the installer installs and enables a key-only SSH server.
+`acknowledgedFirmwareQuirks` is optional:
+sbctl reports firmware quirks from the board model and firmware date,
+so after applying a quirk's mitigation in the firmware menu,
+list its ID,
+such as `FQ0001`,
+to let the installer continue.
 `src/machine.ts` limits every field to the grammar of the file or command it is written into.
 
 ## Running

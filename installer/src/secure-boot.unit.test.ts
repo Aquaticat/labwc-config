@@ -85,22 +85,28 @@ await describe({
       },
     },),
     it({
-      name: 'refuses firmware sbctl knows ignores Secure Boot violations, before anything is written',
+      name: 'refuses firmware quirks the machine description does not acknowledge, before anything is written',
       fn: async () => {
-        const recording = createRecordingShell({
-          captures: {
-            'sbctl status --json': JSON.stringify({
-              setup_mode: true,
-              secure_boot: false,
-              firmware_quirks: [{ id: 'FQ0001', name: 'Defaults to executing on Secure Boot policy violation', },],
-            },),
-          },
-          files: {},
-        },);
-        await expect(assertReadyForSecureBoot({ machine: DESKTOP, shell: recording.shell, },),).rejects.toThrow(
+        const quirky = () =>
+          createRecordingShell({
+            captures: {
+              'sbctl status --json': JSON.stringify({
+                setup_mode: true,
+                secure_boot: false,
+                firmware_quirks: [{ id: 'FQ0001', name: 'Defaults to executing on Secure Boot policy violation', },],
+              },),
+            },
+            files: {},
+          },);
+        const refused = quirky();
+        await expect(assertReadyForSecureBoot({ machine: DESKTOP, shell: refused.shell, },),).rejects.toThrow(
           SecureBootStateError,
         );
-        expect(recording.calls.every((call,) => call.kind === 'capture'),).toEqual(true,);
+        expect(refused.calls.every((call,) => call.kind === 'capture'),).toEqual(true,);
+        await assertReadyForSecureBoot({
+          machine: { ...DESKTOP, acknowledgedFirmwareQuirks: ['FQ0001',], },
+          shell: quirky().shell,
+        },);
       },
     },),
     it({

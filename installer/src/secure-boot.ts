@@ -94,7 +94,7 @@ export async function readSecureBootStatus({ shell, inside, }: {
  @param machine - target description
  @param shell - side effects
  @throws {SecureBootStateError} when a physical machine's firmware is not in setup mode,
- or sbctl knows it ignores Secure Boot policy violations
+ or sbctl reports a firmware quirk the machine description does not acknowledge
  @example
  ```ts
  await assertReadyForSecureBoot({ machine, shell, },);
@@ -115,16 +115,22 @@ export async function assertReadyForSecureBoot({ machine, shell, }: {
       'The firmware is not in Secure Boot setup mode. Clear the Secure Boot keys in the firmware menu, keep Secure Boot enabled, and restart the installer.',
     );
   }
+  const acknowledged = new Set(machine.acknowledgedFirmwareQuirks ?? [],);
   const quirks = status.firmware_quirks ?? [];
-  if (quirks.length > 0) {
-    // sbctl 0.18's FQ0001 covers MSI AMD boards that boot unsigned images despite Secure Boot.
+  // sbctl 0.18 reports FQ0001 from the board model and firmware date for MSI AMD boards,
+  // whose default image execution policy runs images that fail verification.
+  const unacknowledged = quirks.filter((quirk,) => !acknowledged.has(quirk.id,));
+  if (unacknowledged.length > 0) {
     throw new SecureBootStateError(
       `sbctl reports firmware quirks: ${
-        quirks.map((quirk,) => `${quirk.id} ${quirk.name}`).join(', ',)
-      }. Secure Boot would not protect this machine; update the firmware (see https://github.com/Foxboron/sbctl/wiki) and restart the installer.`,
+        unacknowledged.map((quirk,) => `${quirk.id} ${quirk.name}`).join(', ',)
+      }. Apply the mitigation from https://github.com/Foxboron/sbctl/wiki/<ID> in the firmware menu, add the ID to acknowledgedFirmwareQuirks in the machine description, and restart the installer.`,
     );
   }
-  l.info('firmware is in setup mode with no known quirks',);
+  for (const quirk of quirks) {
+    l.info(`firmware quirk ${quirk.id} acknowledged by the machine description`,);
+  }
+  l.info('firmware is in setup mode',);
 }
 
 /**

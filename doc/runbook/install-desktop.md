@@ -23,6 +23,9 @@ the 4 TB SATA data SSD is left untouched and unsnapshotted.
 2. Copy anything still needed off the NVMe;
    the Bazzite root and home are gone after the installer confirms.
 3. Write the CachyOS live ISO to a USB drive.
+4. Note the motherboard model and firmware version.
+   sbctl 0.18 flags MSI AMD boards with FQ0001,
+   which needs a firmware setting before the install.
 
 ## Firmware settings
 
@@ -104,6 +107,19 @@ the 4 TB SATA data SSD is left untouched and unsnapshotted.
    a umask other than 022,
    firmware that is not in setup mode,
    and firmware sbctl flags with a quirk such as FQ0001.
+   For a quirk,
+   apply the mitigation its sbctl wiki page names in the firmware menu;
+   for FQ0001 on MSI boards,
+   set "Secure Boot Mode" to "Custom",
+   then either set "Image Execution Policy" to "Deny Execute" for Option ROM,
+   Removable Media,
+   and Fixed Media,
+   or set "Secure Boot Preset" to "Maximum Security"
+   (<https://github.com/Foxboron/sbctl/wiki/FQ0001>, read 2026-09-15).
+   The RX 7600 option ROM still runs,
+   because the Microsoft certificates it is signed with stay enrolled.
+   sbctl keeps reporting the quirk afterwards,
+   so add `"acknowledgedFirmwareQuirks": ["FQ0001"]` to `machine.json` and run the installer again.
    It then asks for the hostname as confirmation,
    a temporary LUKS passphrase,
    the user password,
