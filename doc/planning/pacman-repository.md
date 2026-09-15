@@ -41,11 +41,15 @@ so every commit on main produces a newer version.
   and GTK's `settings.ini` for GTK 3 and GTK 4.
 - sfwbar reads defaults through `XDG_DATA_DIRS`,
   so its files install under `/usr/share/labwc-config/data/sfwbar/`.
-- `/usr/lib/environment.d/50-labwc-config.conf` prepends both directories for the systemd user manager,
+- `/usr/lib/systemd/user-environment-generators/70-labwc-config` prepends both directories for the systemd user manager,
   so session units and the XDG autostart generator see them;
   in the dev VM on 2026-09-14,
-  the generator ignored the nm-applet override while only uwsm's environment carried the prefix.
-- `/etc/xdg/uwsm/env.d/labwc-config` sets the Qt,
+  the autostart generator ignored the nm-applet override while only uwsm's environment carried the prefix.
+  It is a generator rather than an `environment.d` file because flatpak's generator runs later and rebuilds `XDG_DATA_DIRS` without the prefix,
+  which the rehearsal VM showed on 2026-09-15 as sfwbar loading its stock configuration.
+- `/etc/xdg/uwsm/env.d/labwc-config` prepends both directories again when they are missing,
+  because uwsm exports the login shell's environment and flatpak's shell hook sets `XDG_DATA_DIRS` there,
+  and sets the Qt,
   cursor,
   and Xwayland variables that used to live in `~/.config/uwsm/env`.
   It is a pacman backup file,

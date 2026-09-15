@@ -1,6 +1,18 @@
 # Installed as /etc/xdg/uwsm/env.d/labwc-config and sourced by uwsm when the graphical session starts.
-# XDG_CONFIG_DIRS and XDG_DATA_DIRS come from /usr/lib/environment.d/50-labwc-config.conf instead,
-# so the systemd user manager and its autostart generator see them too.
+
+# uwsm exports the login shell's environment into the session, and flatpak's shell hook sets XDG_DATA_DIRS there
+# without the labwc-config prefix, so the prefix is applied again here, only when missing.
+# /usr/lib/systemd/user-environment-generators/70-labwc-config applies the same prefix for the user manager.
+labwc_config_prepend() {
+  case ":$2:" in
+    *":$1:"*) printf '%s\n' "$2" ;;
+    *) printf '%s\n' "$1${2:+:$2}" ;;
+  esac
+}
+# sfwbar reads its system defaults from XDG_DATA_DIRS, not XDG_CONFIG_DIRS.
+export XDG_DATA_DIRS="$(labwc_config_prepend /usr/share/labwc-config/data "${XDG_DATA_DIRS:-/usr/local/share:/usr/share}")"
+export XDG_CONFIG_DIRS="$(labwc_config_prepend /usr/share/labwc-config/xdg "${XDG_CONFIG_DIRS:-/etc/xdg}")"
+unset -f labwc_config_prepend
 
 # Qt applications take the Breeze black color scheme through plasma-integration.
 export QT_QPA_PLATFORMTHEME=kde
