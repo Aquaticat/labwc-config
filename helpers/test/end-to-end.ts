@@ -207,7 +207,7 @@ async function main(): Promise<void> {
   const menuResult = await menu.output();
   check({
     name: 'choosing Restart panel restarts the panel unit',
-    ok: menuResult.code === 0 && readOrEmpty({ path: `${WORK}/systemctl-args`, },) === '--user\nrestart\nlabwc-panel.service\n',
+    ok: menuResult.code === 0 && readOrEmpty({ path: `${WORK}/systemctl-args`, },) === '--user\n--no-block\nrestart\nlabwc-panel.service\n',
     detail: JSON.stringify({ code: menuResult.code, args: readOrEmpty({ path: `${WORK}/systemctl-args`, },), },),
   },);
   enters = marks({ mark: 'ENTER', },).length;

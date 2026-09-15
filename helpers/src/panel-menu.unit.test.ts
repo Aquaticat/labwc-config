@@ -38,6 +38,7 @@ await describe({
         expect(commandForSelection({ selection: 'Restart panel', },),).toEqual([
           'systemctl',
           '--user',
+          '--no-block',
           'restart',
           'labwc-panel.service',
         ],);

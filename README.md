@@ -91,7 +91,10 @@ In progress:
 - `system/`:
   system unit drop-ins.
 - `user-unit/`:
-  user units for the launcher daemon and the panel,
+  user units for the launcher daemon,
+  the panel,
+  the clipboard history recorder,
+  and the polkit agent,
   and user unit drop-ins.
 - `launcher/`:
   Rust workspace for `labwc-launcherd`,

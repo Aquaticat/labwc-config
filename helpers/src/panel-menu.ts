@@ -20,7 +20,8 @@ export const PANEL_MENU: readonly PanelMenuEntry[] = [
   { label: 'Lock screen', argv: ['swaylock', '-f',], },
   // uuctl appends its own prompt text after the trailing prompt flag.
   { label: 'Manage session services', argv: ['uuctl', 'labwc-launcher', 'dmenu', '-p',], },
-  { label: 'Restart panel', argv: ['systemctl', '--user', 'restart', 'labwc-panel.service',], },
+  // The menu runs inside the panel's own unit, so a blocking restart would stop it mid-wait.
+  { label: 'Restart panel', argv: ['systemctl', '--user', '--no-block', 'restart', 'labwc-panel.service',], },
   { label: 'Log out', argv: ['uwsm', 'stop',], },
 ];
 

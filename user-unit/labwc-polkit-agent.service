@@ -1,0 +1,19 @@
+# Polkit authentication agent for the labwc session.
+# The agent's own XDG autostart entry is limited to KDE sessions,
+# so the labwc session starts it here.
+[Unit]
+Description=Polkit authentication agent for labwc
+Documentation=https://github.com/Aquaticat/labwc-config/blob/main/README.md
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart=/usr/lib/polkit-kde-authentication-agent-1
+Restart=on-failure
+RestartSec=1
+Slice=session-graphical.slice
+
+[Install]
+WantedBy=graphical-session.target
