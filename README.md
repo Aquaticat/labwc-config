@@ -16,7 +16,6 @@ Done:
 - The session configuration that carries to CachyOS lives in `config/`,
   `system/`,
   and `user-unit/`.
-
 - The session helpers are ported:
   the resident launcher,
   its client,
@@ -25,13 +24,23 @@ Done:
   clipboard picker,
   and screenshot helpers are QuickJS-ng scripts built from `helpers/`.
   Each has an end-to-end test that passed in the Hyper-V VM.
+- `packaging/PKGBUILD` builds the session packages,
+  and CI builds and tests them on every push.
+- The TypeScript machine installer in `installer/` built a Hyper-V guest with Secure Boot,
+  TPM2 plus PIN unlocking,
+  and bootable coupled snapshots;
+  `doc/troubleshooting/installer-rehearsal.md` records what that rehearsal found.
 
 In progress:
 
-- A PKGBUILD for the session and a signed pacman repository published through GitHub Releases.
-- A TypeScript machine installer,
-  rehearsed in a fresh Hyper-V VM before the physical NVMe is erased.
-- Measuring the hot paths on the physical desktop.
+- A clean reinstall of the rehearsal guest from the fixed installer and packages.
+
+Waiting on the owner:
+
+- The offline signing key and CI subkey,
+  after which CI publishes the repository to the `repo` release.
+- Installing the physical desktop with `doc/runbook/install-desktop.md`,
+  then measuring its hot paths.
 
 ## Target machine
 
