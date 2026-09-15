@@ -237,6 +237,19 @@ Decided by the user after the spike:
   without icons,
   with bundled Inter and gray-white text on black.
 
+The daemon therefore absorbs `fuzzel-toggle`,
+`meta-tap-launcher`,
+`toggle-shortcut-guard`,
+and fuzzel's dmenu roles.
+Because the daemon now launches applications,
+the busy-cursor flip from `launch-feedback` moves into the daemon as well,
+superseding the earlier plan to port that flip to QuickJS-ng;
+only the Wayland window watcher that ends the busy cursor remains a Deno helper.
+The TypeScript ports that remain are `launch-new`,
+`wlr-pager`,
+the command dispatch after a `panel-menu` selection,
+and that window watcher.
+
 These chains therefore leave the QuickJS-ng runtime decision:
 the launcher daemon and its client are native binaries.
 The client's own start cost has not been measured yet.
