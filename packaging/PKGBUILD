@@ -12,7 +12,8 @@ pkgdesc='Aquaticat labwc session'
 arch=(x86_64)
 url='https://github.com/Aquaticat/labwc-config'
 license=(MIT)
-makedepends=(cargo deno git)
+# The launcher links these at build time; the launcher package depends on them at run time.
+makedepends=(cargo deno git fontconfig freetype2 libxkbcommon)
 options=(!debug !lto)
 
 _repo="$(realpath "${startdir}/..")"
@@ -21,7 +22,8 @@ _repo="$(realpath "${startdir}/..")"
 _cargo_environment() {
   export CARGO_HOME="${srcdir}/cargo-home"
   export CARGO_TARGET_DIR="${srcdir}/target"
-  export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=${CARGO_HOME}=/cargo --remap-path-prefix=${_repo}=/labwc-config"
+  # rustc applies the last matching prefix, so the build directory wins when it sits inside the checkout.
+  export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=${_repo}=/labwc-config --remap-path-prefix=${srcdir}=/build"
 }
 
 pkgver() {
