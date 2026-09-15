@@ -17,16 +17,21 @@ Done:
   `system/`,
   and `user-unit/`.
 
+- The session helpers are ported:
+  the resident launcher,
+  its client,
+  and the pager are Rust binaries in `launcher/`,
+  and the panel menu,
+  clipboard picker,
+  and screenshot helpers are QuickJS-ng scripts built from `helpers/`.
+  Each has an end-to-end test that passed in the Hyper-V VM.
+
 In progress:
 
-- Choosing a TypeScript runtime for the session helpers and the installer.
-- Porting the helpers from the archived shell and Python originals.
 - A PKGBUILD for the session and a signed pacman repository published through GitHub Releases.
 - A TypeScript machine installer,
   rehearsed in a fresh Hyper-V VM before the physical NVMe is erased.
-
-Until the helpers are ported,
-the configuration files still reference `/home/user/.local/bin/` helpers that no longer ship from this tree.
+- Measuring the hot paths on the physical desktop.
 
 ## Target machine
 
@@ -59,9 +64,13 @@ the configuration files still reference `/home/user/.local/bin/` helpers that no
   volume,
   and a clock with a calendar popup.
 - **Launcher**:
-  fuzzel anchored above the panel's launcher icon,
+  `labwc-launcherd`,
+  a resident Slint list anchored at the bottom left,
   toggled by a bare Meta tap,
-  dismissed by clicking outside it.
+  F13,
+  or the panel icon,
+  and also serving the panel menu and clipboard picker as a dmenu;
+  see `doc/planning/launcher.md`.
 - **X11 applications**:
   xwayland-satellite on `DISPLAY=:12`,
   so X11 windows stay crisp at output scale 2.
@@ -82,7 +91,21 @@ the configuration files still reference `/home/user/.local/bin/` helpers that no
 - `system/`:
   system unit drop-ins.
 - `user-unit/`:
-  user unit drop-ins.
+  user units for the launcher daemon and the panel,
+  and user unit drop-ins.
+- `launcher/`:
+  Rust workspace for `labwc-launcherd`,
+  `labwc-launcher`,
+  and `labwc-pager`,
+  with end-to-end tests in `launcher/test/`.
+- `helpers/`:
+  QuickJS-ng helpers written in TypeScript,
+  bundled by `deno task build:helpers`,
+  with an end-to-end test in `helpers/test/`.
+- `installer/`:
+  the TypeScript machine installer.
+- `test-support/`:
+  shared end-to-end test code.
 - `doc/troubleshooting/`:
   verified labwc,
   UWSM,
@@ -91,7 +114,7 @@ the configuration files still reference `/home/user/.local/bin/` helpers that no
 - `archive/bazzite-rehearsal/`:
   the original rehearsal,
   its evidence,
-  and the helpers awaiting ports.
+  and the original shell and Python helpers.
 
 ## License
 

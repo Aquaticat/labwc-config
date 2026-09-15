@@ -219,8 +219,6 @@ Latency results are in `doc/planning/hot-path-budget.md`.
 - The user must be in the `input` group for the Meta tap;
   without it the daemon logs the permission error and F13 still works.
   The installer does not add the group yet.
-- `panel-menu` still calls `fuzzel --dmenu` until it is ported,
-  so `config/fuzzel/fuzzel.ini` stays for now.
 - `DBusActivatable` entries without `Exec` are not listed.
 - `Terminal=true` entries rely on UWSM's terminal selection,
   which the test does not exercise.

@@ -49,9 +49,9 @@
     <keybind key="W-Return"><action name="Execute" command="labwc-launcher run -- ~/AppImages/odytty.appimage"/></keybind>
     <keybind key="W-e"><action name="Execute" command="labwc-launcher run -- dolphin"/></keybind>
     <keybind key="W-L"><action name="Execute" command="swaylock -f"/></keybind>
-    <keybind key="W-V"><action name="Execute" command="sh -c 'cliphist list | labwc-launcher dmenu | cliphist decode | wl-copy'"/></keybind>
-    <keybind key="Print"><action name="Execute" command="sh -c 'grim - | tee ~/Pictures/screenshot-$(date +%s).png | wl-copy'"/></keybind>
-    <keybind key="W-S-S"><action name="Execute" command="sh -c 'grim -g &quot;$(slurp)&quot; - | swappy -f -'"/></keybind>
+    <keybind key="W-V"><action name="Execute" command="labwc-clipboard-pick"/></keybind>
+    <keybind key="Print"><action name="Execute" command="labwc-screenshot"/></keybind>
+    <keybind key="W-S-S"><action name="Execute" command="labwc-screenshot-region"/></keybind>
     <keybind key="W-F12"><action name="ToggleKeybinds"/></keybind>
   </keyboard>
   <mouse>

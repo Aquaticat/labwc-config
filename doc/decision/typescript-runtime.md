@@ -54,6 +54,20 @@ Helpers that only run programs,
 such as the panel menu,
 stay on QuickJS-ng.
 
+## Logging on QuickJS-ng
+
+`@monochromatic-dev/module-logger` 0.4.0 does not run on QuickJS-ng 0.16.2.
+Bundled into a helper,
+its flush timed out because no sink verified,
+its error report then failed because `console.warn` and `console.error` are undefined there,
+and it added about 2.3 ms to every helper start in the VM
+(3.5 ms against 1.2 ms for a helper without it).
+The QuickJS-ng helpers therefore use `helpers/src/qjs-log.ts`,
+which keeps the `tagged({ tag, l, })` shape and the module-logger line format and writes to standard error.
+QuickJS-ng 0.16.2 also has no `TextEncoder` or `TextDecoder`,
+so `helpers/src/utf8.ts` implements the WHATWG UTF-8 codec,
+tested against Deno's built-in one.
+
 ## Consequences
 
 - Which helpers sit on hot paths follows from the definition and is recorded in

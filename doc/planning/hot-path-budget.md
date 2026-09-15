@@ -7,10 +7,60 @@ Every hot path must finish in under 20 ms,
 measured on the physical desktop
 (`doc/decision/typescript-runtime.md`).
 
-## Chains found in the current configuration
+## Chains after the helper ports
 
-Each chain lists the programs it passes through,
-from the archived helpers and the live `config/`:
+Each chain as the configuration runs it now,
+with its VM measurement from the sections below:
+
+- **Bare Meta tap opens or closes the launcher**:
+  the evdev key release read by `labwc-launcherd`,
+  ending at `wl_keyboard.enter`:
+  median 2.1 to 3.1 ms.
+- **F13 or the panel launcher icon opens or closes the launcher**:
+  labwc `Execute` or sfwbar `Exec` of `labwc-launcher toggle`:
+  median 3.7 to 4.1 ms from spawn.
+- **Desktop click closes the launcher**:
+  labwc `Execute` of `labwc-launcher close`:
+  median 0.8 to 0.9 ms from spawn.
+- **Empty panel right-click opens the panel menu**:
+  sfwbar `Exec` of `labwc-panel-menu`,
+  then `labwc-launcher dmenu`:
+  median 5.7 ms,
+  p90 6.7 ms from spawn.
+- **Meta+V opens the clipboard picker**:
+  labwc `Execute` of `labwc-clipboard-pick`,
+  then `cliphist list` and `labwc-launcher dmenu`:
+  median 7.1 ms,
+  p90 9.6 ms from spawn with two history entries;
+  `cliphist list` grows with the history,
+  so the physical measurement must use a real history.
+- **Meta+Shift+S starts a region screenshot**:
+  labwc `Execute` of `labwc-screenshot-region`,
+  ending when slurp's selection surface receives pointer input;
+  not measured yet.
+- **Meta+F12 toggles the shortcut guard**:
+  labwc `ToggleKeybinds`,
+  with `labwc-launcherd` flipping its flag from evdev;
+  no surface.
+- **Pager click or scroll**:
+  sfwbar `Exec` of `labwc-pager`:
+  median 2.0 ms from spawn to the watcher seeing the switch.
+- **Launching from the launcher,
+  Meta+Return,
+  Meta+E,
+  or the taskbar's New instance**:
+  `labwc-launcherd` starts the program through `uwsm app -t service`
+  and commits its launch feedback surface:
+  median 3.5 ms from a `labwc-launcher run` spawn.
+
+The end-to-end tests measure from the harness spawning the first helper,
+so labwc's or sfwbar's own dispatch of the binding is not included;
+the physical measurement starts at the input event.
+
+## Chains in the configuration before the helper ports
+
+Each chain lists the programs it passed through,
+from the archived helpers and the configuration at the time:
 
 - **Bare Meta tap opens the launcher**:
   key release seen by `meta-tap-launcher`,

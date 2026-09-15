@@ -11,7 +11,7 @@ Requisite=graphical-session.target
 Type=exec
 ExecStart=/usr/bin/labwc-launcherd
 Restart=on-failure
-Slice=session.slice
+Slice=session-graphical.slice
 
 [Install]
 WantedBy=graphical-session.target
