@@ -17,6 +17,7 @@ import {
 } from './limine-sbat-build.ts';
 import {
   copyForShim,
+  directLimineEntries,
   needsCopy,
 } from './shim-limine-copy.ts';
 
@@ -104,6 +105,21 @@ await describe({
         expect(sbatCsv('11.2.0-1',).split('\n',)[1],).toEqual(
           'limine,1,Limine,limine,11.2.0-1,https://limine-bootloader.org',
         );
+      },
+    },),
+    it({
+      name: 'finds only the boot entries that start Limine without shim',
+      fn: async () => {
+        const listing = [
+          'BootCurrent: 0001',
+          'BootOrder: 0003,0001,0000',
+          'Boot0000* EFI SCSI Device\tAcpiEx(VMBus,2,0)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,...)',
+          'Boot0001* CachyOS (shim)\tHD(1,GPT,0a1b,0x800,0x800000)/\\EFI\\BOOT\\BOOTX64.EFI',
+          'Boot0003* Limine\tHD(1,GPT,0a1b,0x800,0x800000)/\\EFI\\limine\\limine_x64.efi',
+          '',
+        ].join('\n',);
+        expect(directLimineEntries(listing,),).toEqual(['0003',],);
+        expect(directLimineEntries('BootOrder: 0001\n',),).toEqual([],);
       },
     },),
     it({

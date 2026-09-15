@@ -92,6 +92,84 @@ export async function copyForShim({ source, destination, }: {
   return true;
 }
 
+/** Label of the boot entry that starts shim. */
+export const SHIM_ENTRY_LABEL = 'CachyOS (shim)';
+
+/**
+ Finds boot entries that start Limine directly.
+
+ limine-install registers one on every run;
+ under Secure Boot it bypasses shim and fails,
+ so the hook removes it.
+
+ @param listing - output of `efibootmgr`
+ @returns four-digit boot entry numbers
+ @example
+ ```ts
+ const numbers = directLimineEntries('Boot0003* Limine\tHD(1,GPT,...)/\\EFI\\limine\\limine_x64.efi\n',);
+ ```
+ */
+export function directLimineEntries(listing: string,): readonly string[] {
+  return listing
+    .split('\n',)
+    .filter((line,) => line.startsWith('Boot',) && line.toLowerCase().includes('limine_x64.efi',))
+    .map((line,) => line.slice('Boot'.length, 'Boot'.length + 4,));
+}
+
+/**
+ Runs efibootmgr and returns its output.
+
+ @param args - efibootmgr arguments
+ @returns standard output, or undefined when efibootmgr is missing or fails
+ @example
+ ```ts
+ const listing = await efibootmgr([],);
+ ```
+ */
+async function efibootmgr(args: readonly string[],): Promise<string | undefined> {
+  try {
+    const result = await new Deno.Command('efibootmgr', { args, stderr: 'inherit', },).output();
+    return result.success ? new TextDecoder().decode(result.stdout,) : undefined;
+  } catch (error) {
+    // A missing efibootmgr must not fail the boot hook; the copy above already happened.
+    console.error(`95-shim-limine-copy: efibootmgr unavailable: ${String(error,)}`,);
+    return undefined;
+  }
+}
+
+/**
+ Replaces direct Limine boot entries with one entry that starts shim.
+
+ @example
+ ```ts
+ await keepShimBootEntry();
+ ```
+ */
+async function keepShimBootEntry(): Promise<void> {
+  const listing = await efibootmgr([],);
+  if (listing === undefined) {
+    return;
+  }
+  for (const number of directLimineEntries(listing,)) {
+    await efibootmgr(['--quiet', '--bootnum', number, '--delete-bootnum',],);
+  }
+  if (!listing.includes(SHIM_ENTRY_LABEL,)) {
+    await efibootmgr([
+      '--quiet',
+      '--create',
+      '--disk',
+      '/dev/disk/by-partlabel/ESP',
+      '--part',
+      '1',
+      '--label',
+      SHIM_ENTRY_LABEL,
+      '--loader',
+      '\\EFI\\BOOT\\BOOTX64.EFI',
+    ],);
+  }
+}
+
 if (import.meta.main) {
   await copyForShim({ source: SOURCE, destination: DESTINATION, },);
+  await keepShimBootEntry();
 }
