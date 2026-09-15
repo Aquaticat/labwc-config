@@ -63,8 +63,8 @@ const files = (await Promise.all(directories.map(unitTestFiles,))).flat();
 const failed: string[] = [];
 for (const file of files) {
   const result = await new Deno.Command(Deno.execPath(), {
-    // Tests write only to temporary directories they create.
-    args: ['run', '--allow-read', '--allow-env', '--allow-sys', '--allow-write', file,],
+    // Tests write only to temporary directories they create; the system shell's tests start child Deno processes.
+    args: ['run', '--allow-read', '--allow-env', '--allow-sys', '--allow-write', '--allow-run', file,],
     stdout: 'inherit',
     stderr: 'inherit',
   },).output();
