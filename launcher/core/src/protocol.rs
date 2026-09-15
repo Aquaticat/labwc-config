@@ -8,6 +8,8 @@
 pub enum Request {
     /// Show the application launcher, or hide it when already shown.
     Toggle,
+    /// Hide whatever the daemon shows, cancelling a pending dmenu request.
+    Close,
     /// Let the user pick one of `lines` under `prompt`.
     Dmenu {
         /// Text shown above the choices.
@@ -41,18 +43,27 @@ const NEWLINE: char = '\n';
 /// Splits a payload into lines after removing one final line terminator.
 fn payload_lines(bytes: &[u8]) -> Result<Vec<&str>, ProtocolError> {
     let text = std::str::from_utf8(bytes).map_err(|_| ProtocolError::InvalidUtf8)?;
-    Ok(text.strip_suffix(NEWLINE).unwrap_or(text).split(NEWLINE).collect())
+    Ok(text
+        .strip_suffix(NEWLINE)
+        .unwrap_or(text)
+        .split(NEWLINE)
+        .collect())
 }
 
 /// Serializes a request as newline-terminated lines: the command, then its arguments.
 pub fn encode_request(request: &Request) -> Vec<u8> {
     let lines: Vec<&str> = match request {
         Request::Toggle => vec!["toggle"],
-        Request::Dmenu { prompt, lines } => {
-            ["dmenu", prompt.as_str()].into_iter().chain(lines.iter().map(String::as_str)).collect()
-        }
+        Request::Close => vec!["close"],
+        Request::Dmenu { prompt, lines } => ["dmenu", prompt.as_str()]
+            .into_iter()
+            .chain(lines.iter().map(String::as_str))
+            .collect(),
     };
-    lines.iter().flat_map(|line| line.bytes().chain(*b"\n")).collect()
+    lines
+        .iter()
+        .flat_map(|line| line.bytes().chain(*b"\n"))
+        .collect()
 }
 
 /// Parses a complete request payload read until the client closed its write side.
@@ -63,12 +74,16 @@ pub fn encode_request(request: &Request) -> Vec<u8> {
 /// [`ProtocolError::UnknownCommand`] when the first line is not a known command.
 pub fn decode_request(bytes: &[u8]) -> Result<Request, ProtocolError> {
     let lines = payload_lines(bytes)?;
-    let (command, arguments) = lines.split_first().map_or(("", &[][..]), |(first, rest)| (*first, rest));
+    let (command, arguments) = lines
+        .split_first()
+        .map_or(("", &[][..]), |(first, rest)| (*first, rest));
     match command {
         "toggle" => Ok(Request::Toggle),
+        "close" => Ok(Request::Close),
         "dmenu" => {
-            let (prompt, choices) =
-                arguments.split_first().map_or(("", &[][..]), |(first, rest)| (*first, rest));
+            let (prompt, choices) = arguments
+                .split_first()
+                .map_or(("", &[][..]), |(first, rest)| (*first, rest));
             Ok(Request::Dmenu {
                 prompt: prompt.to_owned(),
                 lines: choices.iter().map(|line| (*line).to_owned()).collect(),
@@ -96,7 +111,9 @@ pub fn decode_reply(bytes: &[u8]) -> Result<Reply, ProtocolError> {
         return Ok(Reply::Cancelled);
     }
     let text = std::str::from_utf8(bytes).map_err(|_| ProtocolError::InvalidUtf8)?;
-    Ok(Reply::Selected(text.strip_suffix(NEWLINE).unwrap_or(text).to_owned()))
+    Ok(Reply::Selected(
+        text.strip_suffix(NEWLINE).unwrap_or(text).to_owned(),
+    ))
 }
 
 #[cfg(test)]

@@ -55,7 +55,11 @@ pub struct TapRecognizer {
 impl TapRecognizer {
     /// Creates a recognizer; `suspended` restores a guard state persisted across daemon restarts.
     pub fn new(suspended: bool) -> Self {
-        Self { meta_down_at: None, armed: false, suspended }
+        Self {
+            meta_down_at: None,
+            armed: false,
+            suspended,
+        }
     }
 
     /// Consumes one key event and returns the action it completes, if any.
@@ -69,7 +73,9 @@ impl TapRecognizer {
         self.armed = false;
         if event.code == KEY_F12 && self.meta_down_at.is_some() {
             self.suspended = !self.suspended;
-            return Some(Action::GuardChanged { suspended: self.suspended });
+            return Some(Action::GuardChanged {
+                suspended: self.suspended,
+            });
         }
         None
     }
@@ -84,8 +90,8 @@ impl TapRecognizer {
             }
             RELEASE => {
                 let pressed_at = self.meta_down_at.take();
-                let within_window =
-                    pressed_at.is_some_and(|pressed| event.time.saturating_sub(pressed) <= TAP_WINDOW);
+                let within_window = pressed_at
+                    .is_some_and(|pressed| event.time.saturating_sub(pressed) <= TAP_WINDOW);
                 let tapped = self.armed && within_window && !self.suspended;
                 self.armed = false;
                 tapped.then_some(Action::Tap)

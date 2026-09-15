@@ -15,7 +15,9 @@ pub struct DesktopEntry {
 }
 
 /// Field codes that expand to file, URL, or metadata arguments the launcher never supplies.
-const FIELD_CODES: [char; 13] = ['f', 'F', 'u', 'U', 'd', 'D', 'n', 'N', 'i', 'c', 'k', 'v', 'm'];
+const FIELD_CODES: [char; 13] = [
+    'f', 'F', 'u', 'U', 'd', 'D', 'n', 'N', 'i', 'c', 'k', 'v', 'm',
+];
 
 /// Collects `key=value` pairs from the `[Desktop Entry]` group, with string escapes resolved.
 fn main_group(text: &str) -> HashMap<&str, String> {
@@ -122,7 +124,8 @@ fn strip_field_codes(argument: &str) -> Option<String> {
 
 /// Reports whether a `;`-separated desktop list names any of `desktops`.
 fn lists_any(list: &str, desktops: &[&str]) -> bool {
-    list.split(';').any(|listed| !listed.is_empty() && desktops.contains(&listed))
+    list.split(';')
+        .any(|listed| !listed.is_empty() && desktops.contains(&listed))
 }
 
 /// Parses a desktop entry and returns it only when the launcher should show it.
@@ -132,17 +135,29 @@ fn lists_any(list: &str, desktops: &[&str]) -> bool {
 pub fn parse_entry(text: &str, desktops: &[&str]) -> Option<DesktopEntry> {
     let pairs = main_group(text);
     let flag = |key: &str| pairs.get(key).is_some_and(|value| value == "true");
-    if pairs.get("Type").map(String::as_str) != Some("Application") || flag("NoDisplay") || flag("Hidden") {
+    if pairs.get("Type").map(String::as_str) != Some("Application")
+        || flag("NoDisplay")
+        || flag("Hidden")
+    {
         return None;
     }
-    if pairs.get("OnlyShowIn").is_some_and(|list| !lists_any(list, desktops)) {
+    if pairs
+        .get("OnlyShowIn")
+        .is_some_and(|list| !lists_any(list, desktops))
+    {
         return None;
     }
-    if pairs.get("NotShowIn").is_some_and(|list| lists_any(list, desktops)) {
+    if pairs
+        .get("NotShowIn")
+        .is_some_and(|list| lists_any(list, desktops))
+    {
         return None;
     }
     let name = pairs.get("Name").filter(|name| !name.is_empty())?.clone();
-    let argv: Vec<String> = split_exec(pairs.get("Exec")?).iter().filter_map(|argument| strip_field_codes(argument)).collect();
+    let argv: Vec<String> = split_exec(pairs.get("Exec")?)
+        .iter()
+        .filter_map(|argument| strip_field_codes(argument))
+        .collect();
     (!argv.is_empty()).then_some(DesktopEntry { name, argv })
 }
 
