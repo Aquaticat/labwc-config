@@ -150,7 +150,8 @@ Latency results are in `doc/planning/hot-path-budget.md`.
   the headless session had no other window.
 - The busy cursor after a launch,
   which moved into the daemon from `launch-feedback`.
-- The end-to-end script is Python kept outside the repository;
+- The end-to-end script is Python,
+  kept as `prototype/slint-layer-launcher/launcher-e2e.py` on branch `prototype/slint-layer-launcher`;
   it needs porting to Deno,
   using FFI for the uinput ioctls,
   before it can be committed.
