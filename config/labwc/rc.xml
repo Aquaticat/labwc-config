@@ -46,8 +46,8 @@
     <keybind key="A-F4"><action name="Close"/></keybind>
     <keybind key="W-Tab"><action name="NextWindow"/></keybind>
     <keybind key="F13"><action name="Execute" command="labwc-launcher toggle"/></keybind>
-    <keybind key="W-Return"><action name="Execute" command="/home/user/.local/bin/launch-feedback /home/user/AppImages/odytty.appimage"/></keybind>
-    <keybind key="W-e"><action name="Execute" command="/home/user/.local/bin/launch-feedback dolphin"/></keybind>
+    <keybind key="W-Return"><action name="Execute" command="labwc-launcher run -- ~/AppImages/odytty.appimage"/></keybind>
+    <keybind key="W-e"><action name="Execute" command="labwc-launcher run -- dolphin"/></keybind>
     <keybind key="W-L"><action name="Execute" command="swaylock -f"/></keybind>
     <keybind key="W-V"><action name="Execute" command="sh -c 'cliphist list | labwc-launcher dmenu | cliphist decode | wl-copy'"/></keybind>
     <keybind key="Print"><action name="Execute" command="sh -c 'grim - | tee ~/Pictures/screenshot-$(date +%s).png | wl-copy'"/></keybind>
