@@ -115,7 +115,8 @@ async function execute({ command, stdout, }: {
     l.error(`${command.description} failed with exit code ${result.code}`,);
     throw new CommandFailedError(`${command.description}: ${program} exited with code ${result.code}`,);
   }
-  return new TextDecoder().decode(result.stdout,);
+  // Reading stdout of a command whose output went to the terminal throws, so only captured output is decoded.
+  return stdout === 'piped' ? new TextDecoder().decode(result.stdout,) : '';
 }
 
 /**
