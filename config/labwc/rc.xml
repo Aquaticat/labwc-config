@@ -45,11 +45,11 @@
     <keybind key="A-Space"><action name="ShowMenu" menu="client-menu"/></keybind>
     <keybind key="A-F4"><action name="Close"/></keybind>
     <keybind key="W-Tab"><action name="NextWindow"/></keybind>
-    <keybind key="F13"><action name="Execute" command="/home/user/.local/bin/fuzzel-toggle"/></keybind>
+    <keybind key="F13"><action name="Execute" command="labwc-launcher toggle"/></keybind>
     <keybind key="W-Return"><action name="Execute" command="/home/user/.local/bin/launch-feedback /home/user/AppImages/odytty.appimage"/></keybind>
     <keybind key="W-e"><action name="Execute" command="/home/user/.local/bin/launch-feedback dolphin"/></keybind>
     <keybind key="W-L"><action name="Execute" command="swaylock -f"/></keybind>
-    <keybind key="W-V"><action name="Execute" command="sh -c 'cliphist list | fuzzel --dmenu | cliphist decode | wl-copy'"/></keybind>
+    <keybind key="W-V"><action name="Execute" command="sh -c 'cliphist list | labwc-launcher dmenu | cliphist decode | wl-copy'"/></keybind>
     <keybind key="Print"><action name="Execute" command="sh -c 'grim - | tee ~/Pictures/screenshot-$(date +%s).png | wl-copy'"/></keybind>
     <keybind key="W-S-S"><action name="Execute" command="sh -c 'grim -g &quot;$(slurp)&quot; - | swappy -f -'"/></keybind>
     <keybind key="W-F12"><action name="ToggleKeybinds"/></keybind>
@@ -58,18 +58,18 @@
     <default/>
     <context name="Root">
       <!-- Any bare-desktop click closes the launcher. Clicks on windows close
-           it via keyboard-focus loss instead (fuzzel.ini keyboard-focus=
-           on-demand); the Root context never sees those. Left also stays
+           it via keyboard-focus loss instead (labwc-launcherd hides on
+           wl_keyboard.leave); the Root context never sees those. Left also stays
            unbound from the root menu (labwc defaults to menu on BOTH desktop
            clicks); Middle/Right re-state their default menus, which a
            same-button user bind would otherwise replace. -->
-      <mousebind button="Left" action="Press"><action name="Execute" command="pkill -x fuzzel"/></mousebind>
+      <mousebind button="Left" action="Press"><action name="Execute" command="labwc-launcher close"/></mousebind>
       <mousebind button="Middle" action="Press">
-        <action name="Execute" command="pkill -x fuzzel"/>
+        <action name="Execute" command="labwc-launcher close"/>
         <action name="ShowMenu" menu="client-list-combined-menu"/>
       </mousebind>
       <mousebind button="Right" action="Press">
-        <action name="Execute" command="pkill -x fuzzel"/>
+        <action name="Execute" command="labwc-launcher close"/>
         <action name="ShowMenu" menu="root-menu"/>
       </mousebind>
     </context>

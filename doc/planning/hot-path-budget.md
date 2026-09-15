@@ -133,7 +133,7 @@ Decided by the user on 2026-09-14:
   Applications launched from the launcher still get their own UWSM units.
 - Faster launchers are researched and measured in the VM with the same harness before fuzzel is kept or replaced.
 
-## Launcher candidates measured in the VM on 2026-09-15
+## Launcher candidates measured in the VM on 2026-09-14
 
 Same VM and headless labwc session,
 run inside `dbus-run-session`;
@@ -183,7 +183,7 @@ walker has no close-on-focus-loss,
 and its click-to-close needs a fullscreen surface;
 tofi keeps exclusive keyboard focus and has no close-on-focus-loss either.
 
-## Resident Slint launcher spike on 2026-09-15
+## Resident Slint launcher spike on 2026-09-14
 
 Proposed by the user after the launcher measurements:
 
@@ -218,7 +218,7 @@ Verdict:
 a resident Slint launcher fits the budget with the most headroom of every candidate measured,
 about 12 times faster than fuzzel and 7 times faster than walker's warm socket show in the VM.
 
-## Launcher architecture decisions on 2026-09-15
+## Launcher architecture decisions on 2026-09-14
 
 Decided by the user after the spike:
 
@@ -252,7 +252,7 @@ and that window watcher.
 
 These chains therefore leave the QuickJS-ng runtime decision:
 the launcher daemon and its client are native binaries.
-The client's own start cost has not been measured yet.
+The client's start cost is measured in the next section.
 
 Considered after the spike and not benchmarked:
 a second research pass found Noctalia 5.1.0,
@@ -260,6 +260,40 @@ a native shell with a raw-socket launcher and dmenu,
 but its launcher creates a new layer surface and GLES scene on every show
 and has no labwc backend for finding the focused output,
 so it cannot beat the resident spike's show path.
+
+## Resident launcher daemon measured in the VM on 2026-09-14
+
+`labwc-launcherd` and `labwc-launcher` from `launcher/`,
+release builds,
+in the same headless labwc session as root,
+with a `/dev/uinput` keyboard for key input,
+3 warm-up and 20 measured iterations per case.
+Marks come from the daemon's `LABWC_LAUNCHER_TRACE` output,
+printed from the same `wl_keyboard.enter` handler position the spike's positive control validated.
+
+- `labwc-launcher toggle`,
+  from the harness spawning the client to keyboard focus:
+  median 3.7 to 3.8 ms,
+  p90 4.5 to 4.9 ms,
+  across three runs.
+- Meta release written to the uinput device to keyboard focus:
+  median 2.1 to 2.2 ms,
+  p90 2.5 to 2.7 ms.
+- `labwc-launcher close` round trip including the client's process start:
+  median 0.8 to 0.9 ms.
+- Client toggle to keyboard focus at output scale 2:
+  median 4.3 ms,
+  p90 5.0 ms;
+  at output scale 3:
+  median 5.8 ms,
+  p90 8.0 ms.
+- Daemon spawn to ready:
+  12.6 to 16.2 ms;
+  idle resident memory:
+  8.1 to 8.3 MiB.
+
+Every launcher chain fits the budget in the VM with at least 12 ms to spare at scale 3.
+Physical measurement remains open.
 
 ## Measurement method to validate
 

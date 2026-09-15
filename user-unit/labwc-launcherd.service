@@ -1,0 +1,17 @@
+# Resident launcher daemon for the labwc session.
+# Bound to graphical-session.target so it starts and stops with the UWSM-managed session.
+[Unit]
+Description=Resident launcher for labwc
+Documentation=https://github.com/Aquaticat/labwc-config/blob/main/doc/planning/launcher.md
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/labwc-launcherd
+Restart=on-failure
+Slice=session.slice
+
+[Install]
+WantedBy=graphical-session.target
