@@ -28,11 +28,17 @@ import {
  */
 export const SUBVOLUMES = ['@', '@cache', '@log', '@tmp',] as const;
 
-/** Name of the opened LUKS mapping, which the kernel command line also names. */
-export const ROOT_MAPPING = 'root';
+/**
+ Name of the LUKS mapping while the installer works on the target.
 
-/** Opened LUKS mapping that holds the root Btrfs filesystem. */
-const ROOT_MAPPER = `/dev/mapper/${ROOT_MAPPING}`;
+ It differs from the boot-time name on purpose:
+ an installed CachyOS used as the installer host already has a mapping called `root`,
+ and the installed system's kernel command line names its own mapping.
+ */
+const INSTALL_MAPPING = 'labwc-config-target';
+
+/** Opened LUKS mapping that holds the root Btrfs filesystem during installation. */
+const ROOT_MAPPER = `/dev/mapper/${INSTALL_MAPPING}`;
 
 /** Mount options shared by every root subvolume. */
 export const BTRFS_OPTIONS = 'noatime,compress=zstd,discard=async';
@@ -155,7 +161,7 @@ export async function prepareDisk({ machine, shell, luksPassphrase, luksUuid, }:
   // --persistent stores allow-discards in the LUKS2 header, so every later unlock keeps TRIM.
   await shell.run({
     description: 'open the LUKS2 container',
-    argv: ['cryptsetup', 'open', '--allow-discards', '--persistent', '--key-file=-', luks, ROOT_MAPPING,],
+    argv: ['cryptsetup', 'open', '--allow-discards', '--persistent', '--key-file=-', luks, INSTALL_MAPPING,],
     stdin: luksPassphrase,
   },);
 

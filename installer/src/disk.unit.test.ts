@@ -133,7 +133,7 @@ await describe({
             '--persistent',
             '--key-file=-',
             `${DESKTOP.targetDisk}-part2`,
-            'root',
+            'labwc-config-target',
           ],
         ],);
         expect(luks.map((command,) => command.stdin),).toEqual([PASSPHRASE, PASSPHRASE,],);

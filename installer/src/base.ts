@@ -9,7 +9,6 @@
 
 import { tagged, } from '@monochromatic-dev/module-logger';
 
-import { ROOT_MAPPING, } from './disk.ts';
 import type {
   Machine,
   Platform,
@@ -19,6 +18,9 @@ import {
   TARGET_ROOT,
 } from './shell.ts';
 import { SNAPSHOT_ENTRY_LIMIT, } from './snapshots.ts';
+
+/** Name the initramfs gives the unlocked root mapping. */
+const ROOT_MAPPING = 'root';
 
 /** pacman configuration pacstrap uses, adapted to the CPU by CachyOS's detection script. */
 const TARGET_PACMAN_CONF = '/tmp/pacman.target.conf';
