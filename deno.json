@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "@monochromatic-dev/module-logger": "npm:@monochromatic-dev/module-logger@^0.4.0",
+    "@monochromatic-dev/module-test": "npm:@monochromatic-dev/module-test"
+  },
+  "tasks": {
+    "test:unit": "deno run --allow-read --allow-env --allow-sys --allow-write=. installer/src/disk-guard.unit.test.ts"
+  },
+  "fmt": {
+    "lineWidth": 120,
+    "singleQuote": true
+  }
+}
