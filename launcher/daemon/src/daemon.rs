@@ -4,6 +4,7 @@ use std::{
     cell::Cell,
     fs,
     os::unix::net::UnixStream,
+    os::unix::process::CommandExt,
     path::PathBuf,
     process::{Child, Command, Stdio},
     rc::Rc,
@@ -266,12 +267,11 @@ impl Daemon {
 
     /// Starts `argv` as its own systemd user unit through UWSM.
     fn launch(&mut self, argv: &[String]) {
-        let spawned = Command::new("uwsm")
-            .args(["app", "-t", "service", "--"])
-            .args(argv)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .spawn();
+        let spawned = spawn_child(
+            Command::new("uwsm")
+                .args(["app", "-t", "service", "--"])
+                .args(argv),
+        );
         match spawned {
             Ok(child) => self.children.push(child),
             Err(error) => log(&format!("launching {argv:?} failed: {error}")),
@@ -317,11 +317,8 @@ impl Daemon {
         } else {
             ("Shortcuts restored", "Global shortcuts active again")
         };
-        let notified = Command::new("notify-send")
-            .args(["--expire-time=2000", title, body])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .spawn();
+        let notified =
+            spawn_child(Command::new("notify-send").args(["--expire-time=2000", title, body]));
         match notified {
             Ok(child) => self.children.push(child),
             Err(error) => log(&format!(
@@ -428,6 +425,27 @@ impl Daemon {
         }
         layer.commit();
     }
+}
+
+/// Spawns `command` with standard input and output detached and an empty signal mask.
+///
+/// The event loop blocks SIGCHLD, SIGTERM, and SIGINT to receive them through signalfd,
+/// and a blocked mask survives exec, so without the reset launched programs could not be stopped with SIGTERM.
+fn spawn_child(command: &mut Command) -> std::io::Result<Child> {
+    command.stdin(Stdio::null()).stdout(Stdio::null());
+    // SAFETY: the hook runs in the forked child before exec and only calls sigemptyset and sigprocmask,
+    // which are async-signal-safe and touch no memory shared with the parent.
+    unsafe {
+        command.pre_exec(|| {
+            let mut empty = std::mem::zeroed::<libc::sigset_t>();
+            libc::sigemptyset(&raw mut empty);
+            if libc::sigprocmask(libc::SIG_SETMASK, &raw const empty, std::ptr::null_mut()) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+    command.spawn()
 }
 
 /// Removes `path`, treating an already missing file as success.

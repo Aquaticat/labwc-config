@@ -122,6 +122,8 @@ Every check passed:
   confirmed by a screenshot showing only Vim for "vi";
 - a desktop file written while the daemon runs appears without a restart,
   and Enter on it runs `uwsm app -t service -- marker-app --flag` with the `%U` field code removed;
+- the launched `uwsm` starts with an empty blocked-signal mask,
+  a check that failed with SIGINT and SIGTERM blocked before the daemon reset the mask for children;
 - the uinput keyboard,
   created after the daemon started,
   is picked up by hotplug;
