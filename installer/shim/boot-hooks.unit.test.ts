@@ -15,11 +15,6 @@ import {
   SbatBuildError,
   sbatCsv,
 } from './limine-sbat-build.ts';
-import {
-  copyForShim,
-  directLimineEntries,
-  needsCopy,
-} from './shim-limine-copy.ts';
 
 /** Address where the synthetic image's PE header starts. */
 const PE_OFFSET = 0x40;
@@ -108,37 +103,31 @@ await describe({
       },
     },),
     it({
-      name: 'finds only the boot entries that start Limine without shim',
+      name: 'copies Limine for shim with the shell hook only when it is deployed and differs',
       fn: async () => {
-        const listing = [
-          'BootCurrent: 0001',
-          'BootOrder: 0003,0001,0000',
-          'Boot0000* EFI SCSI Device\tAcpiEx(VMBus,2,0)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,...)',
-          'Boot0001* CachyOS (shim)\tHD(1,GPT,0a1b,0x800,0x800000)/\\EFI\\BOOT\\BOOTX64.EFI',
-          'Boot0003* Limine\tHD(1,GPT,0a1b,0x800,0x800000)/\\EFI\\limine\\limine_x64.efi',
-          '',
-        ].join('\n',);
-        expect(directLimineEntries(listing,),).toEqual(['0003',],);
-        expect(directLimineEntries('BootOrder: 0001\n',),).toEqual([],);
-      },
-    },),
-    it({
-      name: 'copies Limine for shim only when it is deployed and differs',
-      fn: async () => {
-        const bytes = new Uint8Array([1, 2, 3,],);
-        expect(needsCopy({ source: undefined, destination: bytes, },),).toEqual(false,);
-        expect(needsCopy({ source: bytes, destination: undefined, },),).toEqual(true,);
-        expect(needsCopy({ source: bytes, destination: new Uint8Array([1, 2, 3,],), },),).toEqual(false,);
-        expect(needsCopy({ source: bytes, destination: new Uint8Array([1, 2, 4,],), },),).toEqual(true,);
+        if (Deno.build.os === 'windows') {
+          // The hook runs under limine-snapper-sync's sandbox on Linux; CI's Linux runner exercises this test.
+          console.log('skipped on Windows: needs a POSIX sh and GNU coreutils',);
+          return;
+        }
+        const esp = await Deno.makeTempDir();
+        await Deno.mkdir(`${esp}/EFI/limine`, { recursive: true, },);
+        await Deno.mkdir(`${esp}/EFI/BOOT`, { recursive: true, },);
+        const hook = new URL('./95-shim-limine-copy.sh', import.meta.url,).pathname;
+        const runHook = async () =>
+          await new Deno.Command('sh', { args: [hook,], env: { LABWC_CONFIG_ESP: esp, }, },).output();
 
-        const directory = await Deno.makeTempDir();
-        const source = `${directory}/limine_x64.efi`;
-        const destination = `${directory}/grubx64.efi`;
-        await Deno.writeFile(source, bytes,);
-        expect(await copyForShim({ source, destination, },),).toEqual(true,);
-        expect(await Deno.readFile(destination,),).toEqual(bytes,);
-        expect(await copyForShim({ source, destination, },),).toEqual(false,);
-        await Deno.remove(directory, { recursive: true, },);
+        expect((await runHook()).success,).toEqual(true,);
+        await expect(Deno.stat(`${esp}/EFI/BOOT/grubx64.efi`,),).rejects.toThrow(Deno.errors.NotFound,);
+
+        await Deno.writeFile(`${esp}/EFI/limine/limine_x64.efi`, new Uint8Array([1, 2, 3,],),);
+        expect((await runHook()).success,).toEqual(true,);
+        expect(await Deno.readFile(`${esp}/EFI/BOOT/grubx64.efi`,),).toEqual(new Uint8Array([1, 2, 3,],),);
+
+        await Deno.writeFile(`${esp}/EFI/limine/limine_x64.efi`, new Uint8Array([4, 5,],),);
+        expect((await runHook()).success,).toEqual(true,);
+        expect(await Deno.readFile(`${esp}/EFI/BOOT/grubx64.efi`,),).toEqual(new Uint8Array([4, 5,],),);
+        await Deno.remove(esp, { recursive: true, },);
       },
     },),
   ],

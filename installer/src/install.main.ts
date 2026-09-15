@@ -38,7 +38,7 @@ class InstallerUsageError extends Error {
  @returns file content
  @example
  ```ts
- const script = await readSibling('../shim/shim-limine-copy.ts',);
+ const script = await readSibling('../shim/95-shim-limine-copy.sh',);
  ```
  */
 async function readSibling(relative: string,): Promise<string> {
@@ -94,7 +94,7 @@ await install({
   luksUuid: crypto.randomUUID(),
   hooks: {
     sbatBuilder: await readSibling('../shim/limine-sbat-build.ts',),
-    limineCopy: await readSibling('../shim/shim-limine-copy.ts',),
+    limineCopy: await readSibling('../shim/95-shim-limine-copy.sh',),
   },
   // A directory URL ends with a slash, which cp's --no-target-directory form must not see.
   checkout: new URL('../../', import.meta.url,).pathname.slice(0, -1,),

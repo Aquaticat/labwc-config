@@ -24,7 +24,7 @@ import {
 export type ShimHooks = {
   /** `limine-sbat-build.ts`. */
   readonly sbatBuilder: string;
-  /** `shim-limine-copy.ts`. */
+  /** `95-shim-limine-copy.sh`. */
   readonly limineCopy: string;
 };
 
