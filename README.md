@@ -29,11 +29,8 @@ Done:
 - The TypeScript machine installer in `installer/` built a Hyper-V guest with Secure Boot,
   TPM2 plus PIN unlocking,
   and bootable coupled snapshots;
-  `doc/troubleshooting/installer-rehearsal.md` records what that rehearsal found.
-
-In progress:
-
-- A clean reinstall of the rehearsal guest from the fixed installer and packages.
+  `doc/troubleshooting/installer-rehearsal.md` records what that rehearsal found,
+  and a clean reinstall confirmed the fixes.
 
 Waiting on the owner:
 

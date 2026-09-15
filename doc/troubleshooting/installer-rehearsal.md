@@ -3,12 +3,9 @@
 ## Metadata
 
 - **Status**:
-  Fixed and unit-tested.
-  The shim copy hook,
-  the environment generator,
-  the uwsm env file,
-  and `BOOT_ORDER` were applied by hand on the rehearsal VM after the installation that found them;
-  a clean reinstallation from the fixed installer and packages is pending.
+  Fixed,
+  unit-tested,
+  and confirmed by a clean reinstallation from the fixed installer and packages.
 - **Observed**:
   2026-09-15,
   installing the `CachyOS-Rehearsal` Hyper-V guest from the existing `CachyOS` VM.
@@ -114,6 +111,40 @@ The order now names `linux-cachyos` first.
   and a file written before it was present.
   `systemd-remount-fs.service` fails in a snapshot boot,
   as expected on an overlay root.
+
+## Clean reinstallation
+
+The shim copy hook,
+the environment generator,
+the uwsm env file,
+and `BOOT_ORDER` were first applied by hand on the rehearsal VM.
+On 2026-09-15 the disk was erased and installed again from installer commit `fb0f930`
+and packages `r70.fb0f93052710`,
+with no hand edits afterwards:
+
+- MokManager enrolled the new certificate from disk,
+  and shim,
+  Limine,
+  and the kernel booted with Secure Boot enforcing.
+- The target had `70-labwc-config` after flatpak's generator,
+  no `environment.d` file from labwc-config,
+  `BOOT_ORDER` naming `linux-cachyos` first,
+  which Limine listed first,
+  and `grubx64.efi` identical to Limine.
+- The session started on its own.
+  The systemd user manager,
+  labwc,
+  and sfwbar all carried the labwc-config prefixes after flatpak's;
+  swaync owned `org.freedesktop.Notifications`;
+  `labwc-pager watch` ran;
+  and no user unit failed.
+- First-boot enrollment left a recovery slot and a tpm2 slot,
+  and the next boot unlocked with the PIN.
+- A new snapshot appeared in `limine.conf`,
+  the copy hook refreshed `grubx64.efi` without a SIGSYS,
+  and the machine booted through the re-signed Limine with the PIN.
+  limine-snapper-sync reacts to snapshots asynchronously,
+  so `grubx64.efi` differs from Limine for about a second after `snapper create`.
 
 ## Operating notes
 
