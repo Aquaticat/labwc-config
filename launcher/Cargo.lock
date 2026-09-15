@@ -2249,6 +2249,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "labwc-pager"
+version = "0.1.0"
+dependencies = [
+ "wayland-client",
+ "wayland-protocols",
+]
+
+[[package]]
 name = "launcher-core"
 version = "0.1.0"
 

@@ -41,6 +41,19 @@ by user decision recorded in `doc/planning/hot-path-budget.md`.
 QuickJS-ng remains the runtime for any other hot-path helper,
 and Deno for the rest.
 
+## Amendment on 2026-09-14: hot-path helpers that speak Wayland
+
+A hot-path helper that must talk to the compositor is written in Rust.
+QuickJS-ng has no sockets,
+so it cannot open the Wayland connection,
+and Deno's 55 ms start alone is more than twice the budget.
+The first such helper is `labwc-pager`,
+which switches workspaces from sfwbar pager clicks through ext-workspace-v1;
+its measurements are in `doc/planning/hot-path-budget.md`.
+Helpers that only run programs,
+such as the panel menu,
+stay on QuickJS-ng.
+
 ## Consequences
 
 - Which helpers sit on hot paths follows from the definition and is recorded in

@@ -311,6 +311,27 @@ measured:
   This is the application-launch hot path,
   which ends at the first feedback this repository controls.
 
+## Pager measured in the VM on 2026-09-14
+
+`labwc-pager` from `launcher/pager` replaces the Python `wlr-pager`.
+`launcher/test/pager-end-to-end.ts` starts a private headless labwc with `config/labwc/rc.xml`,
+keeps `labwc-pager watch` running,
+and times each `labwc-pager next` or `prev` from spawn to the watcher printing the new desktop,
+3 warm-up and 21 measured runs:
+
+- median 2.0 ms,
+  p90 3.0 ms,
+  maximum 3.0 ms;
+- positive control with `sh -c 'sleep 0.010; exec labwc-pager …'`:
+  median 15.0 ms,
+  so the method resolves a 10 ms delay.
+
+The same test confirmed that workspaces arrive in `rc.xml` order,
+that `activate` accepts grid indices and names,
+that `next` and `prev` wrap,
+that unknown workspaces and commands exit 1,
+and that `watch` reconnects after the compositor restarts.
+
 ## labwc reconfigure stall measured in the VM on 2026-09-14
 
 The retired busy-cursor flip rewrote labwc's environment file and sent SIGHUP.
