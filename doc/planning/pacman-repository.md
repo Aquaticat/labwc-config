@@ -52,8 +52,14 @@ so every commit on main produces a newer version.
 - GTK reads `gtk.css` only from the user's configuration directory,
   so the package installs the decoration overrides under `/usr/share/labwc-config/gtk/`
   and the installer writes an `@import` of them into the user's `gtk.css`.
-- The getty autologin drop-in and the login shell's `uwsm start` name a user,
-  so the installer writes them.
+- `/etc/profile.d/labwc-config.sh` and `/usr/share/fish/vendor_conf.d/labwc-config.fish` start the session from a login shell,
+  guarded by `uwsm check may-start`,
+  which allows only a fresh local login on the first virtual terminal.
+- The getty autologin drop-in names a user,
+  so the installer writes it.
+- `swaync.service` and the session's own units start through `graphical-session.target.wants` links.
+- `/usr/share/labwc-config/xdg/autostart/nm-applet.desktop` overrides the applet's autostart entry to add `--indicator`,
+  because sfwbar shows only StatusNotifierItem icons.
 
 Lookup behavior behind these paths was read from source on 2026-09-14:
 GTK 3 and GTK 4 `gtksettings.c` read `settings.ini` from every `XDG_CONFIG_DIRS` entry and `gtk.css` only from the user directory;
@@ -90,7 +96,8 @@ The owner generates the key on an offline machine:
 2. Add a signing subkey with an expiry.
 3. Export the public key into `packaging/labwc-config-signing.asc`,
    which the installer adds to pacman's keyring and locally signs.
-4. Export only the subkey's secret with `gpg --armor --export-secret-subkeys SUBKEY_ID!`
+4. Export only the subkey's secret with `gpg --armor --export-secret-subkeys SUBKEY_ID!`,
+   without a passphrase because CI signs unattended,
    and store it as the repository secret `PACMAN_SIGNING_SUBKEY`.
 5. Store the subkey's ID as the repository variable `PACMAN_SIGNING_KEY_ID`.
 

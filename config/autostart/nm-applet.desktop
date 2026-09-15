@@ -1,0 +1,12 @@
+# Overrides /etc/xdg/autostart/nm-applet.desktop through XDG_CONFIG_DIRS.
+# sfwbar shows only StatusNotifierItem icons, so the applet must run with --indicator.
+[Desktop Entry]
+Name=Network
+Comment=Manage your network connections
+Icon=nm-device-wireless
+Exec=nm-applet --indicator
+Terminal=false
+Type=Application
+NoDisplay=true
+NotShowIn=KDE;GNOME;
+X-GNOME-UsesNotifications=true

@@ -83,13 +83,15 @@ package_labwc-config-helpers() {
 package_labwc-config() {
   pkgdesc='Configuration, theme, and user units for the labwc session'
   depends=(labwc-config-launcher labwc-config-helpers labwc uwsm sfwbar xwayland-satellite swaync
-    polkit-kde-agent cliphist wl-clipboard inter-font breeze breeze-gtk plasma-integration)
+    polkit-kde-agent cliphist wl-clipboard inter-font breeze breeze-gtk plasma-integration gsettings-desktop-schemas
+    network-manager-applet)
   license=(MIT Apache-2.0)
   backup=(etc/xdg/uwsm/env.d/labwc-config)
 
   local share="${pkgdir}/usr/share/labwc-config"
   install -D --mode=644 "${_repo}/config/labwc/rc.xml" "${share}/xdg/labwc/rc.xml"
   install -D --mode=644 "${_repo}/config/swaync/style.css" "${share}/xdg/swaync/style.css"
+  install -D --mode=644 "${_repo}/config/autostart/nm-applet.desktop" "${share}/xdg/autostart/nm-applet.desktop"
   install -D --mode=644 "${_repo}/config/gtk-3.0/settings.ini" "${share}/xdg/gtk-3.0/settings.ini"
   install -D --mode=644 "${_repo}/config/gtk-4.0/settings.ini" "${share}/xdg/gtk-4.0/settings.ini"
   # GTK reads gtk.css from the user configuration directory only; the installer imports these from there.
@@ -106,6 +108,8 @@ package_labwc-config() {
   install -D --mode=644 "${_repo}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
   install -D --mode=644 "${_repo}/session/uwsm-env" "${pkgdir}/etc/xdg/uwsm/env.d/labwc-config"
+  install -D --mode=644 "${_repo}/session/login.sh" "${pkgdir}/etc/profile.d/labwc-config.sh"
+  install -D --mode=644 "${_repo}/session/login.fish" "${pkgdir}/usr/share/fish/vendor_conf.d/labwc-config.fish"
   install -D --mode=644 "${_repo}/session/90_labwc-config.gschema.override" "${pkgdir}/usr/share/glib-2.0/schemas/90_labwc-config.gschema.override"
 
   local units="${pkgdir}/usr/lib/systemd/user"
@@ -116,7 +120,7 @@ package_labwc-config() {
   install -D --mode=644 "${_repo}/user-unit/xwayland-satellite.service.d/override.conf" "${units}/xwayland-satellite.service.d/labwc-config.conf"
   # The session's services start with the graphical session for every user, without a per-user enable step.
   install -d "${units}/graphical-session.target.wants"
-  for unit in labwc-launcherd.service labwc-panel.service labwc-clipboard-history.service labwc-polkit-agent.service xwayland-satellite.service; do
+  for unit in labwc-launcherd.service labwc-panel.service labwc-clipboard-history.service labwc-polkit-agent.service xwayland-satellite.service swaync.service; do
     ln --symbolic "../${unit}" "${units}/graphical-session.target.wants/${unit}"
   done
 }
