@@ -183,6 +183,41 @@ walker has no close-on-focus-loss,
 and its click-to-close needs a fullscreen surface;
 tofi keeps exclusive keyboard focus and has no close-on-focus-loss either.
 
+## Resident Slint launcher spike on 2026-09-15
+
+Proposed by the user after the launcher measurements:
+
+> write a Slint app that bundles in Inter font and has string contains search,
+> like how Windows start menu works.
+> Icons aren't needed.
+> Theming other than gray-ish white on black isn't needed.
+
+The user also allowed a daemon architecture.
+
+A throwaway spike on branch `prototype/slint-layer-launcher`,
+directory `prototype/slint-layer-launcher/`,
+kept a Slint 1.17.1 software-rendered window resident and created a smithay-client-toolkit 0.21.1 layer surface on SIGUSR1.
+In the same VM session:
+
+- warm show to `wl_keyboard.enter`:
+  median 2.4 ms,
+  p90 3.1 ms,
+  maximum 3.5 ms over 20 runs;
+- first show after start:
+  4.0 ms;
+- process start to ready:
+  12.4 ms;
+- idle resident memory:
+  9.1 MiB;
+- positive control with a 10 ms sleep in the show path:
+  median 13.1 ms;
+- a `grim` screenshot while shown contained the rendered list,
+  anchored bottom-left.
+
+Verdict:
+a resident Slint launcher fits the budget with the most headroom of every candidate measured,
+about 12 times faster than fuzzel and 7 times faster than walker's warm socket show in the VM.
+
 ## Measurement method to validate
 
 - **Input time**:
