@@ -73,3 +73,46 @@ fn round_trips_a_close_request() {
     );
     assert_eq!(decode_request(&bytes), Ok(Request::Close));
 }
+
+#[test]
+fn round_trips_launch_and_run_requests() {
+    let launch = Request::Launch {
+        app_id: "org.gnome.Nautilus".into(),
+    };
+    assert_eq!(
+        encode_request(&launch),
+        b"launch
+org.gnome.Nautilus
+"
+    );
+    assert_eq!(decode_request(&encode_request(&launch)), Ok(launch));
+    let run = Request::Run {
+        argv: vec!["~/AppImages/odytty.appimage".into(), "--new-window".into()],
+    };
+    assert_eq!(
+        encode_request(&run),
+        b"run
+~/AppImages/odytty.appimage
+--new-window
+"
+    );
+    assert_eq!(decode_request(&encode_request(&run)), Ok(run));
+}
+
+#[test]
+fn rejects_launch_without_an_app_id_and_run_without_a_command() {
+    assert_eq!(
+        decode_request(
+            b"launch
+"
+        ),
+        Err(ProtocolError::MissingArgument("launch"))
+    );
+    assert_eq!(
+        decode_request(
+            b"run
+"
+        ),
+        Err(ProtocolError::MissingArgument("run"))
+    );
+}

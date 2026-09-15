@@ -30,6 +30,13 @@ use wayland_client::{
 use crate::{daemon::Daemon, log, trace};
 
 impl Daemon {
+    /// Whether `surface` is the current launch feedback surface.
+    fn is_feedback_surface(&self, surface: &wl_surface::WlSurface) -> bool {
+        self.feedback
+            .as_ref()
+            .is_some_and(|feedback| feedback.layer.wl_surface() == surface)
+    }
+
     /// Whether `surface` is the launcher's current layer surface.
     fn is_launcher_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         self.layer
@@ -68,9 +75,15 @@ impl CompositorHandler for Daemon {
         let Ok(scale) = u32::try_from(new_factor) else {
             return;
         };
-        if self.is_launcher_surface(surface) && scale != self.scale {
+        if scale == self.scale {
+            return;
+        }
+        if self.is_launcher_surface(surface) {
             self.scale = scale;
             self.draw();
+        } else if self.is_feedback_surface(surface) {
+            self.scale = scale;
+            self.draw_feedback();
         }
     }
 
@@ -120,6 +133,12 @@ impl LayerShellHandler for Daemon {
     fn closed(&mut self, _: &Connection, _: &QueueHandle<Self>, layer: &LayerSurface) {
         if self.layer.as_ref() == Some(layer) {
             self.hide();
+        } else if self
+            .feedback
+            .as_ref()
+            .is_some_and(|feedback| &feedback.layer == layer)
+        {
+            self.end_feedback();
         }
     }
 
@@ -131,6 +150,18 @@ impl LayerShellHandler for Daemon {
         _: LayerSurfaceConfigure,
         _: u32,
     ) {
+        let feedback_first_configure = self
+            .feedback
+            .as_mut()
+            .filter(|feedback| &feedback.layer == layer)
+            .map(|feedback| !std::mem::replace(&mut feedback.configured, true));
+        if let Some(first) = feedback_first_configure {
+            if first {
+                self.scale = self.initial_scale();
+            }
+            self.draw_feedback();
+            return;
+        }
         if self.layer.as_ref() != Some(layer) {
             return;
         }

@@ -2,12 +2,14 @@
 //!
 //! Keeps a Slint software-rendered list ready and maps it on a wlr-layer-shell surface when
 //! a bare Meta tap is read from evdev or a `labwc-launcher` client connects to the socket.
-//! Set `LABWC_LAUNCHER_TRACE=1` to print `READY`, `SHOW`, `ENTER`, `HIDE`, and `TAP` with epoch milliseconds,
+//! Set `LABWC_LAUNCHER_TRACE=1` to print `READY`, `SHOW`, `ENTER`, `HIDE`, `TAP`, `FEEDBACK`, `WINDOW`,
+//! and `FEEDBACK_END` with epoch milliseconds,
 //! which the hot-path measurements use.
 
 mod catalog;
 mod daemon;
 mod evdev;
+mod feedback;
 mod inotify;
 mod server;
 mod wayland;
@@ -329,6 +331,9 @@ fn run() -> Result<(), DaemonError> {
         CompositorState::bind(&globals, &queue).map_err(|error| wayland_error(&error))?;
     let layer_shell = LayerShell::bind(&globals, &queue).map_err(|error| wayland_error(&error))?;
     let shm = Shm::bind(&globals, &queue).map_err(|error| wayland_error(&error))?;
+    let registry = RegistryState::new(&globals);
+    let seat = SeatState::new(&globals, &queue);
+    let output = OutputState::new(&globals, &queue);
     let pool = SlotPool::new((WIDTH * HEIGHT * 4) as usize, &shm)
         .map_err(|error| wayland_error(&error))?;
 
@@ -336,16 +341,19 @@ fn run() -> Result<(), DaemonError> {
     let handle = event_loop.handle();
     let application_dirs = catalog::application_dirs();
     let desktops = catalog::current_desktops();
+    let name_keys = catalog::session_name_keys();
     let guard_flag = runtime_dir.join("labwc-launcher-shortcuts-suspended");
     let mut daemon = Daemon {
         globals: Globals {
-            registry: RegistryState::new(&globals),
-            seat: SeatState::new(&globals, &queue),
-            output: OutputState::new(&globals, &queue),
+            registry,
+            seat,
+            output,
             compositor,
             layer_shell,
             shm,
+            list: globals,
         },
+        connection: connection.clone(),
         queue,
         loop_handle: handle.clone(),
         pool,
@@ -361,10 +369,12 @@ fn run() -> Result<(), DaemonError> {
         clicked_row,
         pixels: Vec::new(),
         view: View::Hidden,
-        entries: catalog::load(&application_dirs, &desktops),
+        entries: catalog::load(&application_dirs, &desktops, &name_keys),
         recognizer: TapRecognizer::new(guard_flag.exists()),
         application_dirs,
         desktops,
+        name_keys,
+        feedback: None,
         reload_pending: false,
         guard_flag,
         children: Vec::new(),

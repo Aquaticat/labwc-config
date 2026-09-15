@@ -14,6 +14,7 @@ libc = "0.2"
 slint = { version = "=1.17.1", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
 smithay-client-toolkit = { version = "=0.21.1", default-features = false, features = ["calloop", "xkbcommon"] }
 wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 
 [build-dependencies]
 slint-build = "=1.17.1"

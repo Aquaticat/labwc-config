@@ -15,6 +15,10 @@ export component LauncherWindow inherits Window {
     in property <string> query;
     // Visible rows, top to bottom.
     in property <[RowData]> rows;
+    // Launch feedback text; when set, the window shows feedback instead of the list.
+    in property <string> busy-label;
+    // Spinner position for launch feedback, 0 to 7.
+    in property <int> busy-step;
     // A visible row was clicked, counted from the top.
     callback row-clicked(int);
 
@@ -22,7 +26,40 @@ export component LauncherWindow inherits Window {
     default-font-family: "Inter Variable";
     default-font-size: 15px;
 
-    VerticalLayout {
+    if root.busy-label != "": HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: center;
+
+            Rectangle {
+                width: 20px;
+                height: 20px;
+
+                for dot[index] in 8: Rectangle {
+                    width: 4px;
+                    height: 4px;
+                    border-radius: 2px;
+                    x: 8px + 8px * cos(index * 45deg);
+                    y: 8px + 8px * sin(index * 45deg);
+                    background: #e8e8e8;
+                    opacity: 1 - mod(root.busy-step - index + 8, 8) / 9;
+                }
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.busy-label;
+            color: #c8c8c8;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    if root.busy-label == "": VerticalLayout {
         alignment: start;
         padding: 8px;
 

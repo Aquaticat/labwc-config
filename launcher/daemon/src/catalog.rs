@@ -5,7 +5,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use launcher_core::desktop_entry::{DesktopEntry, desktop_file_id, visible_entries};
+use launcher_core::desktop_entry::{
+    DesktopEntry, desktop_file_id, message_locale, name_keys, visible_entries,
+};
 
 /// Data directories searched when `XDG_DATA_DIRS` is unset or empty.
 const DEFAULT_DATA_DIRS: &str = "/usr/local/share:/usr/share";
@@ -42,8 +44,23 @@ pub fn current_desktops() -> Vec<String> {
         .collect()
 }
 
+/// Localized `Name` keys for the session's message locale.
+pub fn session_name_keys() -> Vec<String> {
+    let variable = |name| env::var(name).ok();
+    let (lc_all, lc_messages, lang) = (
+        variable("LC_ALL"),
+        variable("LC_MESSAGES"),
+        variable("LANG"),
+    );
+    name_keys(message_locale(
+        lc_all.as_deref(),
+        lc_messages.as_deref(),
+        lang.as_deref(),
+    ))
+}
+
 /// Reads every desktop entry below `dirs` and returns the ones to show.
-pub fn load(dirs: &[PathBuf], desktops: &[String]) -> Vec<DesktopEntry> {
+pub fn load(dirs: &[PathBuf], desktops: &[String], name_keys: &[String]) -> Vec<DesktopEntry> {
     let mut files = Vec::new();
     for dir in dirs {
         collect(dir, dir, &mut files);
@@ -52,6 +69,7 @@ pub fn load(dirs: &[PathBuf], desktops: &[String]) -> Vec<DesktopEntry> {
     visible_entries(
         files.iter().map(|(id, text)| (id.as_str(), text.as_str())),
         &desktops,
+        name_keys,
     )
 }
 

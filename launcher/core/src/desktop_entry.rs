@@ -1,23 +1,101 @@
-//! Reads the parts of a freedesktop desktop entry the launcher shows and runs.
+//! Reads the parts of a freedesktop desktop entry the launcher shows.
 //!
-//! Follows the Desktop Entry Specification's value escapes, `Exec` quoting, and field codes.
-//! Only the `[Desktop Entry]` group is read; action groups and localized keys are ignored.
+//! Follows the Desktop Entry Specification's value escapes, visibility keys, and localized `Name` lookup.
+//! Only the `[Desktop Entry]` group is read.
+//! Launching passes the desktop file ID to UWSM, which handles `Exec`, field codes, `Path`, and `Terminal`.
 
 use std::collections::HashMap;
 
-/// A visible application: what the list shows and what launching runs.
+/// A visible application: what the list shows and what launching names.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DesktopEntry {
-    /// Unlocalized `Name`, shown and searched.
+    /// Desktop file ID, such as `org.gnome.Nautilus.desktop`.
+    pub id: String,
+    /// `Name` in the best available locale, shown and searched.
     pub name: String,
-    /// `Exec` split into arguments with field codes removed.
-    pub argv: Vec<String>,
+    /// `StartupWMClass`, which names the app ID of the windows the application opens.
+    pub startup_wm_class: Option<String>,
 }
 
-/// Field codes that expand to file, URL, or metadata arguments the launcher never supplies.
-const FIELD_CODES: [char; 13] = [
-    'f', 'F', 'u', 'U', 'd', 'D', 'n', 'N', 'i', 'c', 'k', 'v', 'm',
-];
+/// Finds the entry that opens windows with `app_id`, for starting another instance from a taskbar item.
+///
+/// Tries the desktop file ID named after the app ID, then the same ignoring case, then `StartupWMClass` ignoring case.
+pub fn find_by_app_id<'a>(entries: &'a [DesktopEntry], app_id: &str) -> Option<&'a DesktopEntry> {
+    let file_name = format!("{app_id}.desktop");
+    entries
+        .iter()
+        .find(|entry| entry.id == file_name)
+        .or_else(|| {
+            entries
+                .iter()
+                .find(|entry| entry.id.eq_ignore_ascii_case(&file_name))
+        })
+        .or_else(|| {
+            entries.iter().find(|entry| {
+                entry
+                    .startup_wm_class
+                    .as_deref()
+                    .is_some_and(|class| class.eq_ignore_ascii_case(app_id))
+            })
+        })
+}
+
+/// Returns the locale that governs messages, from `LC_ALL`, `LC_MESSAGES`, and `LANG` in that order.
+///
+/// Empty values are skipped, and the `C` and `POSIX` locales mean no localization.
+pub fn message_locale<'a>(
+    lc_all: Option<&'a str>,
+    lc_messages: Option<&'a str>,
+    lang: Option<&'a str>,
+) -> Option<&'a str> {
+    [lc_all, lc_messages, lang]
+        .into_iter()
+        .flatten()
+        .find(|value| !value.is_empty())
+        .filter(|locale| {
+            let base = locale.split(['.', '@']).next().unwrap_or_default();
+            base != "C" && base != "POSIX"
+        })
+}
+
+/// Returns the `Name` keys to try for `locale`, most specific first, ending with the unlocalized key.
+///
+/// A locale has the form `lang_COUNTRY.ENCODING@MODIFIER`; the encoding never takes part in matching.
+pub fn name_keys(locale: Option<&str>) -> Vec<String> {
+    let mut keys = Vec::new();
+    if let Some(locale) = locale {
+        let (without_modifier, modifier) = locale
+            .split_once('@')
+            .map_or((locale, None), |(rest, modifier)| (rest, Some(modifier)));
+        let without_encoding = without_modifier
+            .split_once('.')
+            .map_or(without_modifier, |(rest, _)| rest);
+        let (language, country) = without_encoding
+            .split_once('_')
+            .map_or((without_encoding, None), |(language, country)| {
+                (language, Some(country))
+            });
+        let mut candidates = Vec::new();
+        if let (Some(country), Some(modifier)) = (country, modifier) {
+            candidates.push(format!("{language}_{country}@{modifier}"));
+        }
+        if let Some(country) = country {
+            candidates.push(format!("{language}_{country}"));
+        }
+        if let Some(modifier) = modifier {
+            candidates.push(format!("{language}@{modifier}"));
+        }
+        candidates.push(language.to_owned());
+        keys.extend(
+            candidates
+                .into_iter()
+                .filter(|candidate| !candidate.is_empty())
+                .map(|candidate| format!("Name[{candidate}]")),
+        );
+    }
+    keys.push("Name".to_owned());
+    keys
+}
 
 /// Collects `key=value` pairs from the `[Desktop Entry]` group, with string escapes resolved.
 fn main_group(text: &str) -> HashMap<&str, String> {
@@ -66,62 +144,6 @@ fn unescape_value(value: &str) -> String {
     resolved
 }
 
-/// Splits an `Exec` value into arguments, honoring double quotes and their backslash escapes.
-fn split_exec(exec: &str) -> Vec<String> {
-    let mut arguments = Vec::new();
-    let mut current = String::new();
-    let mut has_token = false;
-    let mut quoted = false;
-    let mut chars = exec.chars();
-    while let Some(character) = chars.next() {
-        if quoted && character == '\\' {
-            if let Some(escaped) = chars.next() {
-                current.push(escaped);
-            }
-        } else if character == '"' {
-            quoted = !quoted;
-            has_token = true;
-        } else if !quoted && character.is_whitespace() {
-            if has_token {
-                arguments.push(std::mem::take(&mut current));
-                has_token = false;
-            }
-        } else {
-            current.push(character);
-            has_token = true;
-        }
-    }
-    if has_token {
-        arguments.push(current);
-    }
-    arguments
-}
-
-/// Removes field codes from one argument and turns `%%` into `%`.
-///
-/// Returns `None` when the argument consisted only of field codes.
-fn strip_field_codes(argument: &str) -> Option<String> {
-    let mut stripped = String::with_capacity(argument.len());
-    let mut removed_code = false;
-    let mut chars = argument.chars();
-    while let Some(character) = chars.next() {
-        if character != '%' {
-            stripped.push(character);
-            continue;
-        }
-        match chars.next() {
-            Some('%') => stripped.push('%'),
-            Some(code) if FIELD_CODES.contains(&code) => removed_code = true,
-            Some(other) => {
-                stripped.push('%');
-                stripped.push(other);
-            }
-            None => stripped.push('%'),
-        }
-    }
-    (!(removed_code && stripped.is_empty())).then_some(stripped)
-}
-
 /// Reports whether a `;`-separated desktop list names any of `desktops`.
 fn lists_any(list: &str, desktops: &[&str]) -> bool {
     list.split(';')
@@ -130,9 +152,15 @@ fn lists_any(list: &str, desktops: &[&str]) -> bool {
 
 /// Parses a desktop entry and returns it only when the launcher should show it.
 ///
-/// `desktops` are the names from `XDG_CURRENT_DESKTOP`, used for `OnlyShowIn` and `NotShowIn`.
+/// `desktops` are the names from `XDG_CURRENT_DESKTOP`, used for `OnlyShowIn` and `NotShowIn`,
+/// and `name_keys` come from [`name_keys`].
 /// Returns `None` for non-applications, hidden entries, entries for other desktops, and entries without a name or command.
-pub fn parse_entry(text: &str, desktops: &[&str]) -> Option<DesktopEntry> {
+pub fn parse_entry(
+    id: &str,
+    text: &str,
+    desktops: &[&str],
+    name_keys: &[String],
+) -> Option<DesktopEntry> {
     let pairs = main_group(text);
     let flag = |key: &str| pairs.get(key).is_some_and(|value| value == "true");
     if pairs.get("Type").map(String::as_str) != Some("Application")
@@ -153,12 +181,18 @@ pub fn parse_entry(text: &str, desktops: &[&str]) -> Option<DesktopEntry> {
     {
         return None;
     }
-    let name = pairs.get("Name").filter(|name| !name.is_empty())?.clone();
-    let argv: Vec<String> = split_exec(pairs.get("Exec")?)
+    pairs.get("Exec").filter(|exec| !exec.trim().is_empty())?;
+    let name = name_keys
         .iter()
-        .filter_map(|argument| strip_field_codes(argument))
-        .collect();
-    (!argv.is_empty()).then_some(DesktopEntry { name, argv })
+        .find_map(|key| pairs.get(key.as_str()).filter(|name| !name.is_empty()))?;
+    Some(DesktopEntry {
+        id: id.to_owned(),
+        name: name.clone(),
+        startup_wm_class: pairs
+            .get("StartupWMClass")
+            .filter(|class| !class.is_empty())
+            .cloned(),
+    })
 }
 
 /// Returns the desktop file ID for a file at `relative_path` below an `applications` directory.
@@ -176,12 +210,13 @@ pub fn desktop_file_id(relative_path: &str) -> Option<String> {
 pub fn visible_entries<'a>(
     files: impl IntoIterator<Item = (&'a str, &'a str)>,
     desktops: &[&str],
+    name_keys: &[String],
 ) -> Vec<DesktopEntry> {
     let mut seen = std::collections::HashSet::new();
     files
         .into_iter()
         .filter(|(id, _)| seen.insert(*id))
-        .filter_map(|(_, text)| parse_entry(text, desktops))
+        .filter_map(|(id, text)| parse_entry(id, text, desktops, name_keys))
         .collect()
 }
 

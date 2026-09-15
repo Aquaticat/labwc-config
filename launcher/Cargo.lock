@@ -2245,6 +2245,7 @@ dependencies = [
  "slint-build",
  "smithay-client-toolkit",
  "wayland-client",
+ "wayland-protocols",
 ]
 
 [[package]]

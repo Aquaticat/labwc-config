@@ -11,8 +11,18 @@ pub const SOCKET_NAME: &str = "labwc-launcher.sock";
 pub enum Request {
     /// Show the application launcher, or hide it when already shown.
     Toggle,
-    /// Hide whatever the daemon shows, cancelling a pending dmenu request.
+    /// Hide whatever the daemon shows, cancelling a pending dmenu request and ending launch feedback.
     Close,
+    /// Start a new instance of the application behind a window's app ID, with launch feedback.
+    Launch {
+        /// Wayland app ID or X11 class of an existing window.
+        app_id: String,
+    },
+    /// Run a command as its own UWSM unit, with launch feedback.
+    Run {
+        /// Program and arguments; none may contain a line break.
+        argv: Vec<String>,
+    },
     /// Let the user pick one of `lines` under `prompt`.
     Dmenu {
         /// Text shown above the choices.
@@ -38,6 +48,8 @@ pub enum ProtocolError {
     InvalidUtf8,
     /// The first line names no known command.
     UnknownCommand(String),
+    /// A command that needs an argument arrived without one.
+    MissingArgument(&'static str),
 }
 
 /// Line terminator used by every message.
@@ -58,6 +70,11 @@ pub fn encode_request(request: &Request) -> Vec<u8> {
     let lines: Vec<&str> = match request {
         Request::Toggle => vec!["toggle"],
         Request::Close => vec!["close"],
+        Request::Launch { app_id } => vec!["launch", app_id.as_str()],
+        Request::Run { argv } => ["run"]
+            .into_iter()
+            .chain(argv.iter().map(String::as_str))
+            .collect(),
         Request::Dmenu { prompt, lines } => ["dmenu", prompt.as_str()]
             .into_iter()
             .chain(lines.iter().map(String::as_str))
@@ -73,8 +90,9 @@ pub fn encode_request(request: &Request) -> Vec<u8> {
 ///
 /// # Errors
 ///
-/// Returns [`ProtocolError::InvalidUtf8`] for non-UTF-8 payloads and
-/// [`ProtocolError::UnknownCommand`] when the first line is not a known command.
+/// Returns [`ProtocolError::InvalidUtf8`] for non-UTF-8 payloads,
+/// [`ProtocolError::UnknownCommand`] when the first line is not a known command,
+/// and [`ProtocolError::MissingArgument`] for `launch` without an app ID or `run` without a program.
 pub fn decode_request(bytes: &[u8]) -> Result<Request, ProtocolError> {
     let lines = payload_lines(bytes)?;
     let (command, arguments) = lines
@@ -83,6 +101,23 @@ pub fn decode_request(bytes: &[u8]) -> Result<Request, ProtocolError> {
     match command {
         "toggle" => Ok(Request::Toggle),
         "close" => Ok(Request::Close),
+        "launch" => match arguments {
+            [app_id] if !app_id.is_empty() => Ok(Request::Launch {
+                app_id: (*app_id).to_owned(),
+            }),
+            _ => Err(ProtocolError::MissingArgument("launch")),
+        },
+        "run" => {
+            if arguments.first().is_none_or(|program| program.is_empty()) {
+                return Err(ProtocolError::MissingArgument("run"));
+            }
+            Ok(Request::Run {
+                argv: arguments
+                    .iter()
+                    .map(|argument| (*argument).to_owned())
+                    .collect(),
+            })
+        }
         "dmenu" => {
             let (prompt, choices) = arguments
                 .split_first()

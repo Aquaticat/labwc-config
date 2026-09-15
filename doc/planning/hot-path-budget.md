@@ -293,6 +293,39 @@ printed from the same `wl_keyboard.enter` handler position the spike's positive 
   8.1 to 8.3 MiB.
 
 Every launcher chain fits the budget in the VM with at least 12 ms to spare at scale 3.
+
+A later run of `launcher/test/end-to-end.ts` on the same day,
+after launch feedback was added,
+measured:
+
+- `labwc-launcher toggle` spawn to keyboard focus:
+  median 4.1 ms,
+  p90 4.8 ms;
+- Meta release to keyboard focus:
+  median 2.9 ms,
+  p90 3.7 ms;
+- `labwc-launcher run -- true` spawn to the first feedback buffer committed:
+  median 3.5 ms,
+  p90 3.9 ms,
+  over 10 runs.
+  This is the application-launch hot path,
+  which ends at the first feedback this repository controls.
+
+## labwc reconfigure stall measured in the VM on 2026-09-14
+
+The retired busy-cursor flip rewrote labwc's environment file and sent SIGHUP.
+A raw Wayland client sent `wl_display.sync` repeatedly for 200 ms after each of 15 signals
+and recorded the longest round trip per trial:
+
+- without a signal:
+  median 0.70 ms,
+  maximum 0.86 ms;
+- after SIGHUP:
+  median 13.56 ms,
+  maximum 16.39 ms.
+
+The compositor is unresponsive for most of a 60 Hz frame on each reconfigure,
+so launch feedback is drawn by the launcher daemon instead.
 Physical measurement remains open.
 
 ## Measurement method to validate

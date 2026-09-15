@@ -2,7 +2,9 @@
 //!
 //! - `labwc-launcher toggle` shows the application launcher, or hides whatever is shown.
 //! - `labwc-launcher close` hides whatever is shown.
-//! - `labwc-launcher dmenu [--prompt TEXT]` reads choices from standard input, one per line, and prints the chosen line.
+//! - `labwc-launcher launch APP_ID` starts another instance of the application behind a window's app ID.
+//! - `labwc-launcher run [--] COMMAND [ARGUMENT...]` runs a command as its own UWSM unit.
+//! - `labwc-launcher dmenu [--prompt TEXT | -p TEXT]` reads choices from standard input, one per line, and prints the chosen line.
 //!
 //! A cancelled dmenu exits with status 1, as dmenu and fuzzel do; usage and connection failures exit with status 2.
 
@@ -22,7 +24,7 @@ const CANCELLED: u8 = 1;
 /// Exit status for usage and connection failures.
 const FAILED: u8 = 2;
 /// Usage text shown for unknown command lines.
-const USAGE: &str = "usage: labwc-launcher toggle | close | dmenu [--prompt TEXT]";
+const USAGE: &str = "usage: labwc-launcher toggle | close | launch APP_ID | run [--] COMMAND [ARGUMENT...] | dmenu [--prompt TEXT | -p TEXT]";
 
 /// Why the client could not complete a request.
 #[derive(Debug)]
@@ -73,25 +75,65 @@ fn io_error(context: &'static str) -> impl FnOnce(io::Error) -> ClientError {
     move |source| ClientError::Io { context, source }
 }
 
-/// Builds the request described by the command line, reading dmenu choices from standard input.
-fn build_request(arguments: &[String]) -> Result<Request, ClientError> {
+/// What the command line asks for.
+#[derive(Debug, Eq, PartialEq)]
+enum Invocation {
+    /// A request that needs nothing from standard input.
+    Send(Request),
+    /// A dmenu request whose choices come from standard input.
+    Dmenu {
+        /// Text shown before the query.
+        prompt: String,
+    },
+}
+
+/// Parses the arguments after the program name.
+///
+/// # Errors
+///
+/// Returns a description of the problem for unknown commands, missing arguments, unknown dmenu options,
+/// and arguments containing line breaks, which the line-based protocol cannot carry.
+fn parse_command_line(arguments: &[String]) -> Result<Invocation, String> {
+    if arguments.iter().any(|argument| argument.contains('\n')) {
+        return Err("arguments cannot contain line breaks".to_owned());
+    }
     match arguments {
-        [command] if command == "toggle" => Ok(Request::Toggle),
-        [command] if command == "close" => Ok(Request::Close),
+        [command] if command == "toggle" => Ok(Invocation::Send(Request::Toggle)),
+        [command] if command == "close" => Ok(Invocation::Send(Request::Close)),
+        [command, app_id] if command == "launch" && !app_id.is_empty() => {
+            Ok(Invocation::Send(Request::Launch {
+                app_id: app_id.clone(),
+            }))
+        }
+        [command, rest @ ..] if command == "run" => {
+            let argv = rest.strip_prefix(&["--".to_owned()]).unwrap_or(rest);
+            if argv.first().is_none_or(String::is_empty) {
+                return Err("run needs a command".to_owned());
+            }
+            Ok(Invocation::Send(Request::Run {
+                argv: argv.to_vec(),
+            }))
+        }
         [command, options @ ..] if command == "dmenu" => {
             let prompt = match options {
                 [] => String::new(),
-                [flag, prompt] if flag == "--prompt" => prompt.clone(),
+                [flag, prompt] if flag == "--prompt" || flag == "-p" => prompt.clone(),
                 [option] if option.starts_with("--prompt=") => {
                     option["--prompt=".len()..].to_owned()
                 }
-                _ => {
-                    return Err(ClientError::Usage(format!(
-                        "unknown dmenu options: {}",
-                        options.join(" ")
-                    )));
-                }
+                _ => return Err(format!("unknown dmenu options: {}", options.join(" "))),
             };
+            Ok(Invocation::Dmenu { prompt })
+        }
+        _ => Err(format!("unknown command line: {}", arguments.join(" "))),
+    }
+}
+
+/// Builds the request described by the command line, reading dmenu choices from standard input.
+fn build_request(arguments: &[String]) -> Result<Request, ClientError> {
+    match parse_command_line(arguments).map_err(ClientError::Usage)? {
+        Invocation::Send(request) => Ok(request),
+        Invocation::Dmenu { prompt } => {
             let input = io::read_to_string(io::stdin())
                 .map_err(io_error("reading choices from standard input"))?;
             Ok(Request::Dmenu {
@@ -99,10 +141,6 @@ fn build_request(arguments: &[String]) -> Result<Request, ClientError> {
                 lines: input.lines().map(str::to_owned).collect(),
             })
         }
-        _ => Err(ClientError::Usage(format!(
-            "unknown command line: {}",
-            arguments.join(" ")
-        ))),
     }
 }
 
@@ -145,3 +183,7 @@ fn main() -> ExitCode {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "main_tests.rs"]
+mod tests;

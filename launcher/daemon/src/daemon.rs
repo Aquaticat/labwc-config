@@ -2,7 +2,7 @@
 
 use std::{
     cell::Cell,
-    fs,
+    env, fs,
     os::unix::net::UnixStream,
     os::unix::process::CommandExt,
     path::PathBuf,
@@ -12,7 +12,7 @@ use std::{
 
 use calloop::LoopHandle;
 use launcher_core::{
-    desktop_entry::DesktopEntry,
+    desktop_entry::{DesktopEntry, find_by_app_id},
     protocol::{Reply, Request, decode_request},
     rank::Order,
     session::{Outcome, Session},
@@ -37,11 +37,18 @@ use smithay_client_toolkit::{
     shm::{Shm, slot::SlotPool},
 };
 use wayland_client::{
-    QueueHandle,
+    Connection, QueueHandle,
+    globals::GlobalList,
     protocol::{wl_keyboard::WlKeyboard, wl_pointer::WlPointer, wl_shm},
 };
 
-use crate::{LauncherWindow, RowData, catalog, log, server::send_reply, trace};
+use crate::{
+    LauncherWindow, RowData, catalog,
+    feedback::{FEEDBACK_HEIGHT, FEEDBACK_WIDTH, Feedback},
+    log,
+    server::send_reply,
+    trace,
+};
 
 /// Launcher width in logical pixels.
 pub const WIDTH: u32 = 480;
@@ -100,12 +107,16 @@ pub struct Globals {
     pub layer_shell: LayerShell,
     /// Shared-memory buffers.
     pub shm: Shm,
+    /// Advertised globals, for binding protocols only while they are needed.
+    pub list: GlobalList,
 }
 
 /// Everything the event loop callbacks mutate.
 pub struct Daemon {
     /// Bound Wayland globals.
     pub globals: Globals,
+    /// Connection to the compositor.
+    pub connection: Connection,
     /// Queue handle for creating Wayland objects.
     pub queue: QueueHandle<Self>,
     /// Event loop handle for registering sources.
@@ -142,6 +153,10 @@ pub struct Daemon {
     pub application_dirs: Vec<PathBuf>,
     /// Desktop names from `XDG_CURRENT_DESKTOP`.
     pub desktops: Vec<String>,
+    /// Localized `Name` keys to try, from the session locale.
+    pub name_keys: Vec<String>,
+    /// Launch feedback while shown.
+    pub feedback: Option<Feedback>,
     /// Whether a catalog reload is already scheduled.
     pub reload_pending: bool,
     /// Meta tap and shortcut guard recognition.
@@ -168,7 +183,18 @@ impl Daemon {
         };
         match request {
             Request::Toggle => self.toggle(),
-            Request::Close => self.hide(),
+            Request::Close => {
+                self.hide();
+                self.end_feedback();
+            }
+            Request::Launch { app_id } => {
+                self.hide();
+                self.launch_app_id(&app_id);
+            }
+            Request::Run { argv } => {
+                self.hide();
+                self.run(argv);
+            }
             Request::Dmenu { prompt, lines } => {
                 self.cancel_dmenu();
                 let session = Session::new(lines.clone(), Order::Given, VISIBLE_ROWS);
@@ -197,6 +223,8 @@ impl Daemon {
     /// Replaces the view and maps the layer surface when it is not mapped yet.
     fn show(&mut self, view: View) {
         trace("SHOW");
+        // Feedback and the launcher share one Slint window, and a newly opened launcher supersedes feedback.
+        self.end_feedback();
         self.view = view;
         if self.layer.is_some() {
             self.draw();
@@ -249,9 +277,11 @@ impl Daemon {
     fn activate(&mut self, index: usize) {
         match std::mem::take(&mut self.view) {
             View::Apps { entries, .. } => {
+                self.hide();
                 if let Some(entry) = entries.get(index) {
-                    self.launch(&entry.argv);
+                    self.launch_entry(entry);
                 }
+                return;
             }
             View::Dmenu { lines, reply, .. } => {
                 let chosen = lines
@@ -265,16 +295,56 @@ impl Daemon {
         self.hide();
     }
 
-    /// Starts `argv` as its own systemd user unit through UWSM.
-    fn launch(&mut self, argv: &[String]) {
-        let spawned = spawn_child(
+    /// Starts a desktop entry through UWSM, which applies `Exec`, field codes, `Path`, and `Terminal`.
+    fn launch_entry(&mut self, entry: &DesktopEntry) {
+        self.start_feedback(format!("Starting {}", entry.name));
+        self.spawn_uwsm_app(std::slice::from_ref(&entry.id));
+    }
+
+    /// Starts another instance of the application behind a window's app ID.
+    fn launch_app_id(&mut self, app_id: &str) {
+        if let Some(entry) = find_by_app_id(&self.entries, app_id).cloned() {
+            self.launch_entry(&entry);
+            return;
+        }
+        if is_on_path(app_id) {
+            self.run(vec![app_id.to_owned()]);
+            return;
+        }
+        log(&format!(
+            "no desktop entry or command matches app ID {app_id}"
+        ));
+        let body = format!("No launcher found for {app_id}");
+        self.spawn_logged(
+            Command::new("notify-send").args(["--expire-time=3000", "New instance", &body]),
+            "notifying about a missing launcher",
+        );
+    }
+
+    /// Runs a command as its own UWSM unit with feedback named after the program.
+    fn run(&mut self, argv: Vec<String>) {
+        let Some(program) = argv.first() else {
+            return;
+        };
+        self.start_feedback(format!("Starting {}", program_label(program)));
+        self.spawn_uwsm_app(&argv);
+    }
+
+    /// Spawns `uwsm app -t service -- arguments`.
+    fn spawn_uwsm_app(&mut self, arguments: &[String]) {
+        self.spawn_logged(
             Command::new("uwsm")
                 .args(["app", "-t", "service", "--"])
-                .args(argv),
+                .args(arguments),
+            "launching through uwsm",
         );
-        match spawned {
+    }
+
+    /// Spawns a helper process, keeping it for reaping and logging a failure with `context`.
+    fn spawn_logged(&mut self, command: &mut Command, context: &str) {
+        match spawn_child(command) {
             Ok(child) => self.children.push(child),
-            Err(error) => log(&format!("launching {argv:?} failed: {error}")),
+            Err(error) => log(&format!("{context} failed: {error}")),
         }
     }
 
@@ -317,20 +387,16 @@ impl Daemon {
         } else {
             ("Shortcuts restored", "Global shortcuts active again")
         };
-        let notified =
-            spawn_child(Command::new("notify-send").args(["--expire-time=2000", title, body]));
-        match notified {
-            Ok(child) => self.children.push(child),
-            Err(error) => log(&format!(
-                "notifying about the shortcut guard failed: {error}"
-            )),
-        }
+        self.spawn_logged(
+            Command::new("notify-send").args(["--expire-time=2000", title, body]),
+            "notifying about the shortcut guard",
+        );
     }
 
     /// Rescans application directories.
     pub fn reload_catalog(&mut self) {
         self.reload_pending = false;
-        self.entries = catalog::load(&self.application_dirs, &self.desktops);
+        self.entries = catalog::load(&self.application_dirs, &self.desktops, &self.name_keys);
     }
 
     /// Picks the scale for a new surface before the compositor reports one: the largest output scale.
@@ -345,9 +411,9 @@ impl Daemon {
             .max(1)
     }
 
-    /// Renders the current view into a new buffer and commits it.
+    /// Renders the launcher or dmenu list into its surface.
     pub fn draw(&mut self) {
-        let Some(layer) = self.layer.as_ref().filter(|_| self.configured) else {
+        let Some(layer) = self.layer.clone().filter(|_| self.configured) else {
             return;
         };
         let rows: Vec<RowData> = match &self.view {
@@ -369,9 +435,34 @@ impl Daemon {
         } else {
             ""
         };
+        self.ui.set_busy_label(SharedString::new());
         self.ui.set_prompt(prompt.into());
         self.ui.set_rows(ModelRc::new(VecModel::from(rows)));
+        self.paint(&layer, WIDTH, HEIGHT);
+    }
 
+    /// Renders launch feedback into its surface.
+    pub fn draw_feedback(&mut self) {
+        let Some(feedback) = self
+            .feedback
+            .as_ref()
+            .filter(|feedback| feedback.configured)
+        else {
+            return;
+        };
+        self.ui.set_busy_label(feedback.label.as_str().into());
+        self.ui.set_busy_step(feedback.step);
+        let layer = feedback.layer.clone();
+        let first_paint = !feedback.painted;
+        self.paint(&layer, FEEDBACK_WIDTH, FEEDBACK_HEIGHT);
+        if first_paint && let Some(feedback) = self.feedback.as_mut() {
+            feedback.painted = true;
+            trace("FEEDBACK");
+        }
+    }
+
+    /// Renders the Slint window at `width` by `height` logical pixels and commits it to `layer`.
+    fn paint(&mut self, layer: &LayerSurface, width: u32, height: u32) {
         let scale = self.scale.max(1);
         if scale != self.rendered_scale {
             #[expect(
@@ -384,10 +475,11 @@ impl Daemon {
                 .dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
             self.rendered_scale = scale;
         }
-        let (width, height) = (WIDTH * scale, HEIGHT * scale);
+        let (width, height) = (width * scale, height * scale);
+        let used = (width * height) as usize;
         self.window.set_size(PhysicalSize::new(width, height));
-        self.pixels
-            .resize((width * height) as usize, PremultipliedRgbaColor::default());
+        self.pixels.clear();
+        self.pixels.resize(used, PremultipliedRgbaColor::default());
         slint::platform::update_timers_and_animations();
         self.window.request_redraw();
         let pixels = &mut self.pixels;
@@ -420,11 +512,35 @@ impl Daemon {
         surface.set_buffer_scale(scale.cast_signed());
         surface.damage_buffer(0, 0, buffer_width, buffer_height);
         if let Err(error) = buffer.attach_to(surface) {
-            log(&format!("attaching the launcher buffer failed: {error}"));
+            log(&format!("attaching a buffer failed: {error}"));
             return;
         }
         layer.commit();
     }
+}
+
+/// Names feedback for a command: the program's file name without an AppImage suffix.
+fn program_label(program: &str) -> &str {
+    let file_name = program.rsplit('/').next().unwrap_or(program);
+    file_name
+        .strip_suffix(".appimage")
+        .or_else(|| file_name.strip_suffix(".AppImage"))
+        .unwrap_or(file_name)
+}
+
+/// Whether `program` names an executable file in a `PATH` directory.
+fn is_on_path(program: &str) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    if program.contains('/') {
+        return false;
+    }
+    env::var_os("PATH").is_some_and(|path| {
+        env::split_paths(&path).any(|dir| {
+            fs::metadata(dir.join(program)).is_ok_and(|metadata| {
+                metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+            })
+        })
+    })
 }
 
 /// Spawns `command` with standard input and output detached and an empty signal mask.
