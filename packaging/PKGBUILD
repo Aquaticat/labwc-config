@@ -84,7 +84,7 @@ package_labwc-config() {
   pkgdesc='Configuration, theme, and user units for the labwc session'
   depends=(labwc-config-launcher labwc-config-helpers labwc uwsm sfwbar xwayland-satellite swaync
     polkit-kde-agent cliphist wl-clipboard inter-font breeze breeze-gtk plasma-integration gsettings-desktop-schemas
-    network-manager-applet)
+    network-manager-applet foot)
   license=(MIT Apache-2.0)
   backup=(etc/xdg/uwsm/env.d/labwc-config)
 

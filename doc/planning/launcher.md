@@ -214,12 +214,22 @@ Every check passed:
 An earlier run of a Python version of the script also confirmed a sharp render at output scale 2.
 Latency results are in `doc/planning/hot-path-budget.md`.
 
+## Verified in a real uwsm session on 2026-09-15
+
+The dev VM installed the packages from a local repository signed with a throwaway key,
+and getty's autologin with the packaged fish login hook started labwc through uwsm:
+
+- every session unit ran,
+  and no user unit failed;
+- each of the 18 visible desktop entries launched through `uwsm app -t service -- ID` without an error,
+  including the `Terminal=true` entries for btop and micro,
+  which uwsm opened in foot;
+  foot is therefore a dependency of the `labwc-config` package.
+
 ## Not verified or not built yet
 
 - The user must be in the `input` group for the Meta tap;
   without it the daemon logs the permission error and F13 still works.
-  The installer does not add the group yet.
+  The installer adds the group.
 - `DBusActivatable` entries without `Exec` are not listed.
-- `Terminal=true` entries rely on UWSM's terminal selection,
-  which the test does not exercise.
 - Measurement on the physical desktop.
