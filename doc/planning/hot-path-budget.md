@@ -283,5 +283,6 @@ Decided by the user on 2026-09-14:
 a chain that ends in a third-party application window is a hot path that ends at the first feedback this repository controls,
 such as the busy cursor.
 The application's own startup is measured and reported but not bound by the budget.
-The cursor flip in `launch-feedback` is therefore a QuickJS-ng hot path,
-while its Wayland window watcher stays on Deno.
+The cursor flip was first planned as a QuickJS-ng hot path in `launch-feedback`;
+after the launcher architecture decisions it belongs to the launcher daemon,
+while the Wayland window watcher stays on Deno.
