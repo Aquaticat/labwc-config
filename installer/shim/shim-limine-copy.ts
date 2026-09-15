@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-read --allow-write
+#!/usr/bin/env -S deno run --ext=ts --allow-read --allow-write
 /**
  Copies the signed Limine binary to where shim loads its second stage.
 

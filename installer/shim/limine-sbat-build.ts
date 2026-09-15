@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-read --allow-write --allow-run --allow-env
+#!/usr/bin/env -S deno run --ext=ts --allow-read --allow-write --allow-run --allow-env
 /**
  Builds a copy of Limine carrying a `.sbat` section, which shim 15.3 and later require of every second stage.
 
