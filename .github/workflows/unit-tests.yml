@@ -1,0 +1,22 @@
+# Runs the installer, helper, and boot hook unit tests on every push and pull request.
+name: unit tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          # Matches the Deno the CachyOS VM and the development machine ran these tests with.
+          deno-version: v2.9.6
+      - run: deno task test:unit
