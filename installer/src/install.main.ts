@@ -102,7 +102,7 @@ await install({
 },);
 
 l.info('Installed. Next:',);
-l.info('1. umount --recursive /mnt && cryptsetup close root && reboot',);
+l.info('1. umount --recursive /mnt && cryptsetup close labwc-config-target && reboot',);
 l.info(
   machine.platform === 'physical'
     ? '2. Enable Secure Boot in the firmware if it is not already enforcing.'
