@@ -59,7 +59,8 @@ The measurements and architecture decisions are in `doc/planning/hot-path-budget
   because labwc's own `ToggleKeybinds` state also resets with the session.
 - Rendering uses the integer buffer scale the compositor reports,
   starting from the largest output scale before the first report.
-  Fractional scales render at the next lower integer scale.
+  `wp_fractional_scale_v1` is not used,
+  so a fractional output scale renders at whatever integer scale labwc reports for it.
 
 ## Components
 
