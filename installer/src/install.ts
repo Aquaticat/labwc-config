@@ -9,6 +9,7 @@ import { tagged, } from '@monochromatic-dev/module-logger';
 import { installBase, } from './base.ts';
 import { configureSystem, } from './configure.ts';
 import { prepareDisk, } from './disk.ts';
+import { prepareHost, } from './host.ts';
 import type {
   InstallSecrets,
   Machine,
@@ -60,6 +61,7 @@ export async function install({ machine, shell, secrets, luksUuid, hooks, checko
 },): Promise<void> {
   const l = tagged({ tag: install.name, },);
   l.info(`installing ${machine.hostname} on ${machine.targetDisk} (${machine.platform})`,);
+  await prepareHost({ machine, shell, },);
   await assertReadyForSecureBoot({ machine, shell, },);
   await prepareDisk({ machine, shell, luksPassphrase: secrets.luksPassphrase, luksUuid, },);
   await installBase({ machine, shell, luksUuid, },);

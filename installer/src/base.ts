@@ -274,38 +274,6 @@ export function withoutSection({ text, name, }: { readonly text: string; readonl
 }
 
 /**
- Initializes pacman's keyring on the live system and trusts the session repository's key.
-
- @param machine - target description
- @param shell - side effects
- @example
- ```ts
- await prepareKeyring({ machine, shell, },);
- ```
- */
-async function prepareKeyring({ machine, shell, }: { readonly machine: Machine; readonly shell: Shell; },): Promise<void> {
-  await shell.run({ description: 'initialize the pacman keyring', argv: ['pacman-key', '--init',], },);
-  await shell.run({
-    description: 'refresh the distribution keyrings',
-    argv: ['pacman', '--sync', '--refresh', '--noconfirm', '--needed', 'cachyos-keyring', 'archlinux-keyring',],
-  },);
-  await shell.run({ description: 'populate the pacman keyring', argv: ['pacman-key', '--populate',], },);
-  // The live ISO ships pacstrap, genfstab, and arch-chroot; an installed CachyOS used as the installer host does not.
-  await shell.run({
-    description: 'install pacstrap and arch-chroot',
-    argv: ['pacman', '--sync', '--noconfirm', '--needed', 'arch-install-scripts',],
-  },);
-  await shell.run({
-    description: 'add the session repository key',
-    argv: ['pacman-key', '--add', machine.repository.publicKeyFile,],
-  },);
-  await shell.run({
-    description: 'trust the session repository key',
-    argv: ['pacman-key', '--lsign-key', machine.repository.keyFingerprint,],
-  },);
-}
-
-/**
  Writes the configuration package hooks read while pacstrap runs.
 
  @param machine - target description
@@ -366,8 +334,6 @@ export async function installBase({ machine, shell, luksUuid, }: {
   readonly luksUuid: string;
 },): Promise<void> {
   const l = tagged({ tag: installBase.name, },);
-  await prepareKeyring({ machine, shell, },);
-
   await shell.run({ description: 'copy the live pacman.conf', argv: ['cp', '/etc/pacman.conf', TARGET_PACMAN_CONF,], },);
   if (hasOptimizedRepositories(await shell.readFile(TARGET_PACMAN_CONF,),)) {
     l.info('pacman.conf already lists CPU-optimized repositories',);

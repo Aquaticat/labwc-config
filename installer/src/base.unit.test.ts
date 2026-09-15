@@ -71,15 +71,9 @@ await describe({
   name: installBase.name,
   children: [
     it({
-      name: 'trusts the session repository key and requires signatures before pacstrap reads the repository',
+      name: 'requires signatures from the session repository in the target pacman.conf',
       fn: async () => {
         const calls = await install(DESKTOP,);
-        const trust = indexOf({
-          calls,
-          matches: (call,) => call.kind === 'run' && call.command.argv.join(' ',).startsWith('pacman-key --lsign-key',),
-        },);
-        const pacstrap = indexOf({ calls, matches: (call,) => call.kind === 'run' && call.command.argv[0] === 'pacstrap', },);
-        expect(trust >= 0 && trust < pacstrap,).toEqual(true,);
         expect(writtenFile({ calls, path: '/mnt/etc/pacman.conf', },)?.content,).toEqual(
           `[options]\nArchitecture = auto\n\n[labwc-config]\nSigLevel = Required\nServer = ${DESKTOP.repository.server}\n`,
         );
@@ -101,13 +95,6 @@ await describe({
         expect(writtenFile({ calls: recording.calls, path: '/mnt/etc/pacman.conf', },)?.content,).toEqual(
           `[options]\n\n[cachyos-znver4]\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\n\n[core]\nInclude = /etc/pacman.d/mirrorlist\n\n[labwc-config]\nSigLevel = Required\nServer = ${DESKTOP.repository.server}\n`,
         );
-        expect(commandsOf(recording.calls,),).toContainEqual([
-          'pacman',
-          '--sync',
-          '--noconfirm',
-          '--needed',
-          'arch-install-scripts',
-        ],);
       },
     },),
     it({

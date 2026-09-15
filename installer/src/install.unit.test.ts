@@ -76,6 +76,9 @@ await describe({
         const argvs = commandsOf(recording.calls,);
         const position = (matches: (argv: readonly string[],) => boolean,): number => argvs.findIndex(matches,);
         const wipe = position((argv,) => argv[0] === 'wipefs');
+        const tools = position((argv,) => argv.includes('gptfdisk',));
+        const trust = position((argv,) => argv[1] === '--lsign-key');
+        expect(tools >= 0 && tools < wipe && trust >= 0 && trust < wipe,).toEqual(true,);
         const pacstrap = position((argv,) => argv[0] === 'pacstrap');
         const snapperSupport = position((argv,) => argv.includes('cachyos-snapper-support',));
         const signing = position((argv,) => argv.includes('limine-update',));

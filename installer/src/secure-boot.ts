@@ -106,10 +106,6 @@ export async function assertReadyForSecureBoot({ machine, shell, }: {
     l.info('Hyper-V enrolls through shim and MOK; setup mode is not needed',);
     return;
   }
-  await shell.run({
-    description: 'install sbctl in the live system',
-    argv: ['pacman', '--sync', '--noconfirm', '--needed', 'sbctl',],
-  },);
   const status = await readSecureBootStatus({ shell, inside: false, },);
   if (!status.setup_mode) {
     throw new SecureBootStateError(
