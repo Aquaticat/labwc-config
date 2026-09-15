@@ -7,6 +7,10 @@
     "test:unit": "deno run --allow-read --allow-env --allow-sys --allow-write=. installer/src/disk-guard.unit.test.ts && deno run --allow-read --allow-env --allow-sys --allow-write=. installer/src/plan.unit.test.ts && deno run --allow-read --allow-env --allow-sys --allow-write=. helpers/src/panel-menu.unit.test.ts && deno run --allow-read --allow-env --allow-sys --allow-write=. helpers/src/screenshot-path.unit.test.ts && deno run --allow-read --allow-env --allow-sys --allow-write=. helpers/src/utf8.unit.test.ts",
     "build:helpers": "deno run --allow-read --allow-write --allow-run --allow-env helpers/build.ts --out-dir helpers/dist"
   },
+  "minimumDependencyAge": {
+    "age": "P1D",
+    "exclude": ["npm:@monochromatic-dev/*"]
+  },
   "fmt": {
     "lineWidth": 120,
     "singleQuote": true
