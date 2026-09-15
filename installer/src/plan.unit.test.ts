@@ -47,5 +47,19 @@ await describe({
         expect(created,).toEqual(['/mnt/@', '/mnt/@cache', '/mnt/@log', '/mnt/@tmp',],);
       },
     },),
+    it({
+      name: 'mounts @ as the root and the unsnapshotted subvolumes under /var, never on /home',
+      fn: async () => {
+        const subvolumeMounts = commands(planInstall({ machine: DESKTOP, },),)
+          .filter((argv,) => argv[0] === 'mount' && argv.some((argument,) => argument.includes('subvol=',)))
+          .map((argv,) => [argv.find((argument,) => argument.includes('subvol=',)), argv.at(-1,),]);
+        expect(subvolumeMounts,).toEqual([
+          ['noatime,compress=zstd,discard=async,subvol=/@', '/mnt',],
+          ['noatime,compress=zstd,discard=async,subvol=/@cache', '/mnt/var/cache',],
+          ['noatime,compress=zstd,discard=async,subvol=/@log', '/mnt/var/log',],
+          ['noatime,compress=zstd,discard=async,subvol=/@tmp', '/mnt/var/tmp',],
+        ],);
+      },
+    },),
   ],
 },);

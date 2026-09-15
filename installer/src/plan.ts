@@ -40,6 +40,70 @@ const TOP_LEVEL_MOUNT = '/mnt';
  */
 export const SUBVOLUMES = ['@', '@cache', '@log', '@tmp',] as const;
 
+/** Opened LUKS mapping that holds the root Btrfs filesystem. */
+const ROOT_MAPPER = '/dev/mapper/root';
+
+/** Mount options shared by every root subvolume. */
+const BTRFS_OPTIONS = 'noatime,compress=zstd,discard=async';
+
+/** Where each unsnapshotted subvolume is mounted inside the installed root. */
+const DETACHED_MOUNTS: Readonly<Record<Exclude<typeof SUBVOLUMES[number], '@'>, string>> = {
+  '@cache': '/var/cache',
+  '@log': '/var/log',
+  '@tmp': '/var/tmp',
+};
+
+/**
+ Builds a command step.
+
+ @param description - what the command achieves, shown before it runs
+ @param argv - program and arguments, run without a shell
+ @returns the step, so plans read as lists of commands
+ @example
+ ```ts
+ run({ description: 'unmount', argv: ['umount', '/mnt',], },);
+ ```
+ */
+function run({ description, argv, }: { readonly description: string; readonly argv: readonly string[]; },): RunStep {
+  return { kind: 'run', description, argv, };
+}
+
+/**
+ Plans subvolume creation on the Btrfs top level and the final mount layout under `/mnt`.
+
+ @returns steps that leave the target root mounted at `/mnt` with every unsnapshotted subvolume in place
+ @example
+ ```ts
+ const steps = planSubvolumes();
+ ```
+ */
+function planSubvolumes(): readonly InstallStep[] {
+  const detached = Object.entries(DETACHED_MOUNTS,);
+  return [
+    ...SUBVOLUMES.map((subvolume,) =>
+      run({
+        description: `create Btrfs subvolume ${subvolume}`,
+        argv: ['btrfs', 'subvolume', 'create', `${TOP_LEVEL_MOUNT}/${subvolume}`,],
+      },)
+    ),
+    run({ description: 'unmount the Btrfs top level', argv: ['umount', TOP_LEVEL_MOUNT,], },),
+    run({
+      description: 'mount @ as the installed root',
+      argv: ['mount', '--options', `${BTRFS_OPTIONS},subvol=/@`, ROOT_MAPPER, TOP_LEVEL_MOUNT,],
+    },),
+    run({
+      description: 'create mount points for the unsnapshotted subvolumes',
+      argv: ['mkdir', '--parents', ...detached.map(([, path,],) => `${TOP_LEVEL_MOUNT}${path}`),],
+    },),
+    ...detached.map(([subvolume, path,],) =>
+      run({
+        description: `mount ${subvolume} at ${path}`,
+        argv: ['mount', '--options', `${BTRFS_OPTIONS},subvol=/${subvolume}`, ROOT_MAPPER, `${TOP_LEVEL_MOUNT}${path}`,],
+      },)
+    ),
+  ];
+}
+
 /**
  Plans a complete installation.
 
@@ -53,9 +117,5 @@ export const SUBVOLUMES = ['@', '@cache', '@log', '@tmp',] as const;
 export function planInstall({ machine, }: { readonly machine: Machine; },): readonly InstallStep[] {
   const l = tagged({ tag: planInstall.name, },);
   l.info(`planning ${machine.platform} install for ${machine.hostname}`,);
-  return SUBVOLUMES.map((subvolume,): InstallStep => ({
-    kind: 'run',
-    description: `create Btrfs subvolume ${subvolume}`,
-    argv: ['btrfs', 'subvolume', 'create', `${TOP_LEVEL_MOUNT}/${subvolume}`,],
-  }));
+  return planSubvolumes();
 }
