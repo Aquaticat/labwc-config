@@ -38,6 +38,7 @@ async function run({ machine, setupMode, }: { readonly machine: Machine; readonl
   const recording = createRecordingShell({
     captures: {
       'sh -c umask': '0022\n',
+      'arch-chroot /mnt mokutil --generate-hash': 'input password: \n$6$salt$digest\n',
       'sbctl status --json': JSON.stringify({ setup_mode: setupMode, secure_boot: false, },),
       [`readlink --canonicalize-existing ${machine.targetDisk}`]: '/dev/sda\n',
       'lsblk --json --output PATH,TYPE,MOUNTPOINTS': JSON.stringify({

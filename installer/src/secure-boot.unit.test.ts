@@ -20,6 +20,7 @@ import {
 import {
   assertReadyForSecureBoot,
   configureSecureBoot,
+  mokHashFrom,
   SecureBootStateError,
 } from './secure-boot.ts';
 import {
@@ -114,6 +115,14 @@ await describe({
         expect(copyHook >= 0 && copyHook < deploy,).toEqual(true,);
         expect(writtenFile({ calls, path: '/mnt/etc/boot/hooks/post.d/95-shim-limine-copy', },)?.mode,).toEqual(0o755,);
         expect(writtenFile({ calls, path: '/mnt/usr/local/bin/limine-sbat-build', },)?.content,).toEqual(HOOKS.sbatBuilder,);
+      },
+    },),
+    it({
+      name: 'keeps only the crypt hash from mokutil output, which also prints its prompts on standard output',
+      fn: async () => {
+        const hash = '$6$AQcoA/jteAlw$eMS5pTJesotVdToQcdL1X6DlNQeT2Q3V6fbX38pc2pfD7vj9jyD9tgePXc2eco7Xpmj3I2yY5h8ZGVJ5Cdhj1.';
+        expect(mokHashFrom(`input password: \ninput password again: \n${hash}\n`,),).toEqual(`${hash}\n`,);
+        expect(() => mokHashFrom('input password: \n',)).toThrow(SecureBootStateError,);
       },
     },),
     it({

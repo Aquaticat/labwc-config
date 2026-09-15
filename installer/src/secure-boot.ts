@@ -116,6 +116,28 @@ export async function assertReadyForSecureBoot({ machine, shell, }: {
 }
 
 /**
+ Extracts the password hash from `mokutil --generate-hash` output.
+
+ mokutil prints its password prompts on standard output before the hash,
+ and `mokutil --import --hash-file` rejects a file containing them.
+
+ @param output - captured standard output
+ @returns hash line with a trailing line break
+ @throws {SecureBootStateError} when the output holds no crypt hash
+ @example
+ ```ts
+ const hash = mokHashFrom('input password: \n$6$salt$digest\n',);
+ ```
+ */
+export function mokHashFrom(output: string,): string {
+  const hash = output.split('\n',).map((line,) => line.trim()).find((line,) => line.startsWith('$',));
+  if (hash === undefined) {
+    throw new SecureBootStateError('mokutil --generate-hash printed no password hash',);
+  }
+  return `${hash}\n`;
+}
+
+/**
  Installs the hooks that keep shim loading a signed Limine with a `.sbat` section.
 
  @param shell - side effects
@@ -221,7 +243,7 @@ export async function configureSecureBoot({ machine, shell, hooks, mokPassword, 
   await shell.writeFile({
     description: 'MOK password hash',
     path: `${TARGET_ROOT}/root/mok.hash`,
-    content: hash,
+    content: mokHashFrom(hash,),
     mode: 0o600,
   },);
   await shell.run({
