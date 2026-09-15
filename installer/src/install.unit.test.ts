@@ -37,6 +37,7 @@ import {
 async function run({ machine, setupMode, }: { readonly machine: Machine; readonly setupMode: boolean; },) {
   const recording = createRecordingShell({
     captures: {
+      'sh -c umask': '0022\n',
       'sbctl status --json': JSON.stringify({ setup_mode: setupMode, secure_boot: false, },),
       [`readlink --canonicalize-existing ${machine.targetDisk}`]: '/dev/sda\n',
       'lsblk --json --output PATH,TYPE,MOUNTPOINTS': JSON.stringify({

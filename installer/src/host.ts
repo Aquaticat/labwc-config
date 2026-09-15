@@ -29,6 +29,20 @@ export const HOST_TOOL_PACKAGES = [
   'sbctl',
 ] as const;
 
+/** umask pacstrap and arch-chroot expect; stricter masks leave installed directories unreadable to other users. */
+const EXPECTED_UMASK = '0022';
+
+/** Thrown when the installer host is in a state that would produce a broken installation. */
+export class HostStateError extends Error {
+  /**
+   @param message - observed state and how to correct it
+   */
+  constructor(message: string,) {
+    super(message,);
+    this.name = HostStateError.name;
+  }
+}
+
 /**
  Initializes pacman's keyring,
  installs the host tools,
@@ -46,6 +60,11 @@ export async function prepareHost({ machine, shell, }: { readonly machine: Machi
   void
 > {
   const l = tagged({ tag: prepareHost.name, },);
+  // A rehearsal run under umask 077 created /var/cache/pacman as root-only, so pacman's download user could not write to it.
+  const umask = (await shell.capture({ description: 'read the umask', argv: ['sh', '-c', 'umask',], },)).trim();
+  if (umask !== EXPECTED_UMASK) {
+    throw new HostStateError(`the installer needs umask ${EXPECTED_UMASK}, not ${umask}; run umask ${EXPECTED_UMASK} first`,);
+  }
   await shell.run({ description: 'initialize the pacman keyring', argv: ['pacman-key', '--init',], },);
   await shell.run({
     description: 'refresh the distribution keyrings',
