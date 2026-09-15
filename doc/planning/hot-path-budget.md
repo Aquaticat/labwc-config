@@ -133,6 +133,56 @@ Decided by the user on 2026-09-14:
   Applications launched from the launcher still get their own UWSM units.
 - Faster launchers are researched and measured in the VM with the same harness before fuzzel is kept or replaced.
 
+## Launcher candidates measured in the VM on 2026-09-15
+
+Same VM and headless labwc session,
+run inside `dbus-run-session`;
+3 warm-up and 20 measured iterations each.
+Resident launchers were measured from the trigger to `wl_keyboard.enter` in the resident process's `WAYLAND_DEBUG` log.
+Candidates came from a research pass over resident and startup-optimized layer-shell launchers;
+walker 2.17.0 is in the CachyOS repository,
+tofi 0.9.1 and elephant 2.22.0 were built from AUR snapshots.
+
+- fuzzel 1.15.0 with `config/fuzzel/fuzzel.ini`:
+  median 29.6 ms,
+  p90 33.0 ms.
+- fuzzel with `render-workers=0` and `match-workers=0`:
+  median 27.1 ms,
+  p90 31.8 ms.
+- `tofi-drun` with a font file path,
+  `--hint-font false`,
+  anchored bottom-left at 480×360:
+  median 12.2 ms,
+  p90 13.3 ms.
+  tofi draws no application icons.
+- `tofi` in dmenu mode with 5 lines:
+  median 12.4 ms,
+  p90 14.3 ms.
+- walker service (`walker --gapplication-service` with elephant),
+  shown by connecting to `$XDG_RUNTIME_DIR/walker/walker.sock` from the harness:
+  median 17.7 ms,
+  p90 21.9 ms,
+  after a one-time first show of 141.6 ms.
+- walker service shown by spawning `nc -U -N` on that socket,
+  as a QuickJS-ng helper would have to because QuickJS-ng has no sockets:
+  median 19.0 ms,
+  p90 22.9 ms.
+- `walker --dmenu`,
+  which starts a GTK client that forwards to the service:
+  median 74.6 ms,
+  p90 77.9 ms.
+
+The first walker attempt closed the window with `walker --close` and timed out:
+that GTK client had not finished before the next show,
+so the next socket connection toggled the window closed.
+Closing through the same socket and waiting for `wl_keyboard.leave` fixed the harness.
+
+Feature gaps from the research pass,
+not yet verified in a session:
+walker has no close-on-focus-loss,
+and its click-to-close needs a fullscreen surface;
+tofi keeps exclusive keyboard focus and has no close-on-focus-loss either.
+
 ## Measurement method to validate
 
 - **Input time**:
