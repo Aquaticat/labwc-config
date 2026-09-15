@@ -218,6 +218,36 @@ Verdict:
 a resident Slint launcher fits the budget with the most headroom of every candidate measured,
 about 12 times faster than fuzzel and 7 times faster than walker's warm socket show in the VM.
 
+## Launcher architecture decisions on 2026-09-15
+
+Decided by the user after the spike:
+
+- The launcher is a resident Rust and Slint daemon living in this repository.
+- The daemon reads evdev keyboards itself and recognizes the bare Meta tap in-process,
+  replacing the separate `meta-tap-launcher` watcher and the IPC hop on that chain.
+  The Meta+F12 shortcut-guard flag moves into the daemon with it.
+- F13,
+  the panel launcher icon,
+  the panel menu,
+  and the clipboard picker reach the daemon through a small Rust client binary over a Unix socket:
+  a toggle request,
+  and a dmenu request that sends lines and receives the selection.
+- The same daemon serves application launching and dmenu roles.
+- Search is substring containment over names,
+  without icons,
+  with bundled Inter and gray-white text on black.
+
+These chains therefore leave the QuickJS-ng runtime decision:
+the launcher daemon and its client are native binaries.
+The client's own start cost has not been measured yet.
+
+Considered after the spike and not benchmarked:
+a second research pass found Noctalia 5.1.0,
+a native shell with a raw-socket launcher and dmenu,
+but its launcher creates a new layer surface and GLES scene on every show
+and has no labwc backend for finding the focused output,
+so it cannot beat the resident spike's show path.
+
 ## Measurement method to validate
 
 - **Input time**:

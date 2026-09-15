@@ -34,6 +34,13 @@ installed into the live ISO session with pacman rather than compiled.
   a VM pass suggests a physical pass,
   and a VM failure of CPU-bound work is strong but not conclusive evidence of a physical failure.
 
+## Amendment on 2026-09-15
+
+The launcher chains moved to a resident Rust and Slint daemon with a Rust socket client,
+by user decision recorded in `doc/planning/hot-path-budget.md`.
+QuickJS-ng remains the runtime for any other hot-path helper,
+and Deno for the rest.
+
 ## Consequences
 
 - Which helpers sit on hot paths follows from the definition and is recorded in
