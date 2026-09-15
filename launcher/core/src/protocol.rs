@@ -3,6 +3,9 @@
 //! One request per connection.
 //! The client writes the request and shuts down its write side; the daemon answers a dmenu request and closes.
 
+/// File name of the daemon socket inside `XDG_RUNTIME_DIR`.
+pub const SOCKET_NAME: &str = "labwc-launcher.sock";
+
 /// What a client asks the daemon to do.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Request {

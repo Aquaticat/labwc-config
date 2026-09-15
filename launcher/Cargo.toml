@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core"]
+members = ["core", "client", "daemon"]
 
 [workspace.package]
 edition = "2024"
@@ -12,3 +12,7 @@ missing_docs = "deny"
 
 [workspace.lints.clippy]
 missing_docs_in_private_items = "deny"
+
+[profile.release]
+lto = true
+codegen-units = 1

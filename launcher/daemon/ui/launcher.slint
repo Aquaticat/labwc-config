@@ -1,0 +1,70 @@
+// Launcher and dmenu list: a query line above rows of names, gray-white on black.
+// The daemon owns all state and pushes the visible rows after every change.
+
+import "../font/InterVariable.ttf";
+
+export struct RowData {
+    text: string,
+    selected: bool,
+}
+
+export component LauncherWindow inherits Window {
+    // Text shown before the query in dmenu mode; empty for the application launcher.
+    in property <string> prompt;
+    // Text typed so far.
+    in property <string> query;
+    // Visible rows, top to bottom.
+    in property <[RowData]> rows;
+    // A visible row was clicked, counted from the top.
+    callback row-clicked(int);
+
+    background: #000000;
+    default-font-family: "Inter Variable";
+    default-font-size: 15px;
+
+    VerticalLayout {
+        alignment: start;
+        padding: 8px;
+
+        HorizontalLayout {
+            height: 40px;
+            padding-left: 8px;
+            padding-right: 8px;
+            spacing: 8px;
+
+            if root.prompt != "": Text {
+                text: root.prompt;
+                color: #8a8a8a;
+                vertical-alignment: center;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.query == "" ? "Search" : root.query;
+                color: root.query == "" ? #6a6a6a : #e8e8e8;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        for row[index] in root.rows: Rectangle {
+            height: 28px;
+            border-radius: 4px;
+            background: row.selected ? #2a2a2a : transparent;
+
+            Text {
+                x: 8px;
+                width: parent.width - 16px;
+                text: row.text;
+                color: row.selected ? #ffffff : #c8c8c8;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            TouchArea {
+                clicked => {
+                    root.row-clicked(index);
+                }
+            }
+        }
+    }
+}

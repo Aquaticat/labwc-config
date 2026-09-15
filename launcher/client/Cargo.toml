@@ -1,0 +1,13 @@
+[package]
+name = "labwc-launcher"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Asks the resident launcher daemon to toggle, close, or pick a line."
+
+[dependencies]
+launcher-core = { path = "../core" }
+
+[lints]
+workspace = true
