@@ -51,5 +51,35 @@ await describe({
         );
       },
     },),
+    it({
+      name: 'refuses a partition instead of a whole disk',
+      fn: async () => {
+        expect(() => assertTargetDisk({ lsblk: IDLE_NVME, devicePath: '/dev/nvme0n1p2', },)).toThrow(
+          '/dev/nvme0n1p2 is not a whole block device reported by lsblk',
+        );
+      },
+    },),
+    it({
+      name: 'refuses a disk with an opened LUKS mapping even when nothing is mounted',
+      fn: async () => {
+        const opened = {
+          blockdevices: [{
+            ...IDLE_NVME.blockdevices[0],
+            children: [
+              IDLE_NVME.blockdevices[0].children[0],
+              {
+                path: '/dev/nvme0n1p2',
+                type: 'part',
+                mountpoints: [null,],
+                children: [{ path: '/dev/mapper/root', type: 'crypt', mountpoints: [null,], },],
+              },
+            ],
+          },],
+        };
+        expect(() => assertTargetDisk({ lsblk: opened, devicePath: '/dev/nvme0n1', },)).toThrow(
+          '/dev/mapper/root is an active crypt mapping',
+        );
+      },
+    },),
   ],
 },);

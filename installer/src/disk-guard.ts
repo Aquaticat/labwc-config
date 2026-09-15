@@ -28,6 +28,9 @@ export type LsblkReport = {
   readonly blockdevices: readonly LsblkDevice[];
 };
 
+/** `lsblk` types that can exist on an idle disk; every other type is a live mapping holding it open. */
+const PASSIVE_DEVICE_TYPES: ReadonlySet<string> = new Set(['disk', 'part',],);
+
 /** Thrown when the requested installation target is unsafe to erase. */
 export class UnsafeTargetDiskError extends Error {
   /**
@@ -85,16 +88,21 @@ export function assertTargetDisk({ lsblk, devicePath, }: {
   if (disk === undefined) {
     throw new UnsafeTargetDiskError(`${devicePath} is not a whole block device reported by lsblk`,);
   }
-  const mounted = flattenDevice(disk,)
-    .flatMap((device,) =>
-      device.mountpoints
-        .filter((mountpoint,): mountpoint is string => mountpoint !== null)
-        .map((mountpoint,) => `${device.path} is mounted at ${mountpoint}`)
-    );
-  if (mounted.length > 0) {
-    l.error(mounted.join('; ',),);
-    throw new UnsafeTargetDiskError(mounted.join('; ',),);
+  const devices = flattenDevice(disk,);
+  const mounted = devices.flatMap((device,) =>
+    device.mountpoints
+      .filter((mountpoint,): mountpoint is string => mountpoint !== null)
+      .map((mountpoint,) => `${device.path} is mounted at ${mountpoint}`)
+  );
+  // Anything stacked above a partition (LUKS, LVM, RAID) holds the disk open even when unmounted.
+  const mapped = devices
+    .filter((device,) => !PASSIVE_DEVICE_TYPES.has(device.type,))
+    .map((device,) => `${device.path} is an active ${device.type} mapping`);
+  const problems = [...mounted, ...mapped,];
+  if (problems.length > 0) {
+    l.error(problems.join('; ',),);
+    throw new UnsafeTargetDiskError(problems.join('; ',),);
   }
-  l.info(`${devicePath} has no mounted descendants`,);
+  l.info(`${devicePath} has no mounted descendants and no active mappings`,);
   return devicePath;
 }
