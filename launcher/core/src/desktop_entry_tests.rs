@@ -1,6 +1,6 @@
-//! Tests for [`super::parse_entry`].
+//! Tests for [`super::parse_entry`] and [`super::visible_entries`].
 
-use super::{DesktopEntry, parse_entry};
+use super::{DesktopEntry, desktop_file_id, parse_entry, visible_entries};
 
 /// Desktops a labwc session advertises in `XDG_CURRENT_DESKTOP`.
 const LABWC: [&str; 2] = ["labwc", "wlroots"];
@@ -79,5 +79,53 @@ fn skips_links_directories_and_entries_without_exec() {
     assert_eq!(
         parse("[Desktop Entry]\nType=Application\nName=NoExec\n"),
         None
+    );
+}
+
+#[test]
+fn derives_desktop_file_ids_from_paths_below_the_applications_directory() {
+    assert_eq!(
+        desktop_file_id("org.gnome.Nautilus.desktop"),
+        Some("org.gnome.Nautilus.desktop".to_owned())
+    );
+    assert_eq!(
+        desktop_file_id("kde4/konsole.desktop"),
+        Some("kde4-konsole.desktop".to_owned())
+    );
+    assert_eq!(desktop_file_id("mimeinfo.cache"), None);
+}
+
+#[test]
+fn earlier_files_mask_later_files_with_the_same_id_even_when_hidden() {
+    let hidden = "[Desktop Entry]
+Type=Application
+Name=Foot
+Exec=foot
+NoDisplay=true
+";
+    let foot = "[Desktop Entry]
+Type=Application
+Name=Foot
+Exec=foot
+";
+    let files = "[Desktop Entry]
+Type=Application
+Name=Files
+Exec=nautilus
+";
+    let entries = visible_entries(
+        [
+            ("foot.desktop", hidden),
+            ("foot.desktop", foot),
+            ("org.gnome.Nautilus.desktop", files),
+        ],
+        &LABWC,
+    );
+    assert_eq!(
+        entries,
+        [DesktopEntry {
+            name: "Files".into(),
+            argv: vec!["nautilus".into()]
+        }]
     );
 }

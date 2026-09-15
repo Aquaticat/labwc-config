@@ -161,6 +161,30 @@ pub fn parse_entry(text: &str, desktops: &[&str]) -> Option<DesktopEntry> {
     (!argv.is_empty()).then_some(DesktopEntry { name, argv })
 }
 
+/// Returns the desktop file ID for a file at `relative_path` below an `applications` directory.
+///
+/// Returns `None` for files that are not desktop entries.
+pub fn desktop_file_id(relative_path: &str) -> Option<String> {
+    relative_path
+        .ends_with(".desktop")
+        .then(|| relative_path.replace('/', "-"))
+}
+
+/// Parses `(desktop file ID, text)` pairs in data-directory precedence order into the entries to show.
+///
+/// The first file for an ID wins, so a hidden user override masks a system entry with the same ID.
+pub fn visible_entries<'a>(
+    files: impl IntoIterator<Item = (&'a str, &'a str)>,
+    desktops: &[&str],
+) -> Vec<DesktopEntry> {
+    let mut seen = std::collections::HashSet::new();
+    files
+        .into_iter()
+        .filter(|(id, _)| seen.insert(*id))
+        .filter_map(|(_, text)| parse_entry(text, desktops))
+        .collect()
+}
+
 #[cfg(test)]
 #[path = "desktop_entry_tests.rs"]
 mod tests;
