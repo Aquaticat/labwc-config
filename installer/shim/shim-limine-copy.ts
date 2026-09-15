@@ -128,7 +128,7 @@ export function directLimineEntries(listing: string,): readonly string[] {
  */
 async function efibootmgr(args: readonly string[],): Promise<string | undefined> {
   try {
-    const result = await new Deno.Command('efibootmgr', { args, stderr: 'inherit', },).output();
+    const result = await new Deno.Command('efibootmgr', { args: [...args,], stderr: 'inherit', },).output();
     return result.success ? new TextDecoder().decode(result.stdout,) : undefined;
   } catch (error) {
     // A missing efibootmgr must not fail the boot hook; the copy above already happened.
