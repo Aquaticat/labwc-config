@@ -1,9 +1,6 @@
 # Installed as /etc/xdg/uwsm/env.d/labwc-config and sourced by uwsm when the graphical session starts.
-# Session defaults ship under /usr/share/labwc-config, ahead of the standard directories;
-# a file under ~/.config still overrides them.
-export XDG_CONFIG_DIRS="/usr/share/labwc-config/xdg:${XDG_CONFIG_DIRS:-/etc/xdg}"
-# sfwbar reads its system defaults from XDG_DATA_DIRS, not XDG_CONFIG_DIRS.
-export XDG_DATA_DIRS="/usr/share/labwc-config/data:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# XDG_CONFIG_DIRS and XDG_DATA_DIRS come from /usr/lib/environment.d/50-labwc-config.conf instead,
+# so the systemd user manager and its autostart generator see them too.
 
 # Qt applications take the Breeze black color scheme through plasma-integration.
 export QT_QPA_PLATFORMTHEME=kde

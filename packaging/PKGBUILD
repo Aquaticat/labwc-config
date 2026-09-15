@@ -108,6 +108,7 @@ package_labwc-config() {
   install -D --mode=644 "${_repo}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
   install -D --mode=644 "${_repo}/session/uwsm-env" "${pkgdir}/etc/xdg/uwsm/env.d/labwc-config"
+  install -D --mode=644 "${_repo}/session/environment.conf" "${pkgdir}/usr/lib/environment.d/50-labwc-config.conf"
   install -D --mode=644 "${_repo}/session/login.sh" "${pkgdir}/etc/profile.d/labwc-config.sh"
   install -D --mode=644 "${_repo}/session/login.fish" "${pkgdir}/usr/share/fish/vendor_conf.d/labwc-config.fish"
   install -D --mode=644 "${_repo}/session/90_labwc-config.gschema.override" "${pkgdir}/usr/share/glib-2.0/schemas/90_labwc-config.gschema.override"

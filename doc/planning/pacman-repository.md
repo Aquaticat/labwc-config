@@ -41,8 +41,11 @@ so every commit on main produces a newer version.
   and GTK's `settings.ini` for GTK 3 and GTK 4.
 - sfwbar reads defaults through `XDG_DATA_DIRS`,
   so its files install under `/usr/share/labwc-config/data/sfwbar/`.
-- `/etc/xdg/uwsm/env.d/labwc-config` prepends both directories when the session starts,
-  and sets the Qt,
+- `/usr/lib/environment.d/50-labwc-config.conf` prepends both directories for the systemd user manager,
+  so session units and the XDG autostart generator see them;
+  in the dev VM on 2026-09-14,
+  the generator ignored the nm-applet override while only uwsm's environment carried the prefix.
+- `/etc/xdg/uwsm/env.d/labwc-config` sets the Qt,
   cursor,
   and Xwayland variables that used to live in `~/.config/uwsm/env`.
   It is a pacman backup file,
