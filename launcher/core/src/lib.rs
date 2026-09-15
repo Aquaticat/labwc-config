@@ -4,3 +4,4 @@
 
 pub mod rank;
 pub mod desktop_entry;
+pub mod protocol;
