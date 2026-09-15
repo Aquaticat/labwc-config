@@ -124,7 +124,7 @@ export async function assertReadyForSecureBoot({ machine, shell, }: {
     throw new SecureBootStateError(
       `sbctl reports firmware quirks: ${
         unacknowledged.map((quirk,) => `${quirk.id} ${quirk.name}`).join(', ',)
-      }. Apply the mitigation from https://github.com/Foxboron/sbctl/wiki/<ID> in the firmware menu, add the ID to acknowledgedFirmwareQuirks in the machine description, and restart the installer.`,
+      }. Apply the mitigation from https://github.com/Foxboron/sbctl/wiki/${unacknowledged[0]?.id} in the firmware menu, add the ID to acknowledgedFirmwareQuirks in the machine description, and restart the installer.`,
     );
   }
   for (const quirk of quirks) {

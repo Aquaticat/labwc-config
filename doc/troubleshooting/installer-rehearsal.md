@@ -156,3 +156,9 @@ with no hand edits afterwards:
 - A key sent while the PIN prompt was already showing typed characters into it.
   Clearing them with Backspace before typing the PIN avoided a failed attempt,
   which matters because the Hyper-V vTPM locks out after 3 failures.
+- `mokutil --import` inside `arch-chroot` writes the request into the installer host's NVRAM,
+  not the target's.
+  After installing a guest from another VM,
+  run `mokutil --revoke-import` on that host,
+  or its next boot opens MokManager.
+  The guest enrolls the certificate from the ESP instead.

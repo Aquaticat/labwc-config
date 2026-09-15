@@ -38,7 +38,10 @@ the 4 TB SATA data SSD is left untouched and unsnapshotted.
    Do not restore factory keys afterwards.
    In setup mode the firmware does not enforce signatures,
    so the unsigned live ISO boots.
-4. Set a firmware administrator password,
+4. On an MSI board,
+   apply the FQ0001 firmware setting from step 6 of the live ISO section during the same visit,
+   and add `acknowledgedFirmwareQuirks` to `machine.json` when writing it.
+5. Set a firmware administrator password,
    so Secure Boot cannot be switched off without it.
 
 ## On the live ISO
