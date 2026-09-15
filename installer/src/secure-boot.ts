@@ -34,6 +34,8 @@ type SbctlStatus = {
   readonly setup_mode: boolean;
   /** Whether the firmware enforces signatures. */
   readonly secure_boot: boolean;
+  /** Known firmware defects sbctl detected from DMI data; older sbctl versions omit the field. */
+  readonly firmware_quirks?: readonly { readonly id: string; readonly name: string; }[];
 };
 
 /** Thrown when the firmware is not in the state a Secure Boot step needs. */
@@ -91,7 +93,8 @@ export async function readSecureBootStatus({ shell, inside, }: {
 
  @param machine - target description
  @param shell - side effects
- @throws {SecureBootStateError} when a physical machine's firmware is not in setup mode
+ @throws {SecureBootStateError} when a physical machine's firmware is not in setup mode,
+ or sbctl knows it ignores Secure Boot policy violations
  @example
  ```ts
  await assertReadyForSecureBoot({ machine, shell, },);
@@ -112,7 +115,16 @@ export async function assertReadyForSecureBoot({ machine, shell, }: {
       'The firmware is not in Secure Boot setup mode. Clear the Secure Boot keys in the firmware menu, keep Secure Boot enabled, and restart the installer.',
     );
   }
-  l.info('firmware is in setup mode',);
+  const quirks = status.firmware_quirks ?? [];
+  if (quirks.length > 0) {
+    // sbctl 0.18's FQ0001 covers MSI AMD boards that boot unsigned images despite Secure Boot.
+    throw new SecureBootStateError(
+      `sbctl reports firmware quirks: ${
+        quirks.map((quirk,) => `${quirk.id} ${quirk.name}`).join(', ',)
+      }. Secure Boot would not protect this machine; update the firmware (see https://github.com/Foxboron/sbctl/wiki) and restart the installer.`,
+    );
+  }
+  l.info('firmware is in setup mode with no known quirks',);
 }
 
 /**

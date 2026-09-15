@@ -3,8 +3,12 @@
 ## Metadata
 
 - **Status**:
-  Fixed and unit-tested;
-  a second full installation confirms the fixes that were applied by hand after the first.
+  Fixed and unit-tested.
+  The shim copy hook,
+  the environment generator,
+  the uwsm env file,
+  and `BOOT_ORDER` were applied by hand on the rehearsal VM after the installation that found them;
+  a clean reinstallation from the fixed installer and packages is pending.
 - **Observed**:
   2026-09-15,
   installing the `CachyOS-Rehearsal` Hyper-V guest from the existing `CachyOS` VM.

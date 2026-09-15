@@ -85,6 +85,25 @@ await describe({
       },
     },),
     it({
+      name: 'refuses firmware sbctl knows ignores Secure Boot violations, before anything is written',
+      fn: async () => {
+        const recording = createRecordingShell({
+          captures: {
+            'sbctl status --json': JSON.stringify({
+              setup_mode: true,
+              secure_boot: false,
+              firmware_quirks: [{ id: 'FQ0001', name: 'Defaults to executing on Secure Boot policy violation', },],
+            },),
+          },
+          files: {},
+        },);
+        await expect(assertReadyForSecureBoot({ machine: DESKTOP, shell: recording.shell, },),).rejects.toThrow(
+          SecureBootStateError,
+        );
+        expect(recording.calls.every((call,) => call.kind === 'capture'),).toEqual(true,);
+      },
+    },),
+    it({
       name: 'enrolls custom keys with Microsoft certificates on the desktop without shim or MOK',
       fn: async () => {
         const argvs = commandsOf(await configure(DESKTOP,),);
