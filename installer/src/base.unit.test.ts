@@ -86,6 +86,41 @@ await describe({
       },
     },),
     it({
+      name: 'installs from a system whose pacman.conf already has optimized repositories and a session repository',
+      fn: async () => {
+        const recording = createRecordingShell({
+          captures: { 'genfstab -U /mnt': '', },
+          files: {
+            '/tmp/pacman.target.conf':
+              '[options]\n\n[cachyos-znver4]\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\n\n[labwc-config]\nSigLevel = Required\nServer = file:///old\n\n[core]\nInclude = /etc/pacman.d/mirrorlist\n',
+          },
+        },);
+        await installBase({ machine: DESKTOP, shell: recording.shell, luksUuid: LUKS_UUID, },);
+        expect(commandsOf(recording.calls,).some((argv,) => argv.includes('/etc/calamares/scripts/detect-architecture',)),)
+          .toEqual(false,);
+        expect(writtenFile({ calls: recording.calls, path: '/mnt/etc/pacman.conf', },)?.content,).toEqual(
+          `[options]\n\n[cachyos-znver4]\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\n\n[core]\nInclude = /etc/pacman.d/mirrorlist\n\n[labwc-config]\nSigLevel = Required\nServer = ${DESKTOP.repository.server}\n`,
+        );
+        expect(commandsOf(recording.calls,),).toContainEqual([
+          'pacman',
+          '--sync',
+          '--noconfirm',
+          '--needed',
+          'arch-install-scripts',
+        ],);
+      },
+    },),
+    it({
+      name: 'enables CPU-optimized repositories on a live system that has none',
+      fn: async () => {
+        expect(commandsOf(await install(DESKTOP,),),).toContainEqual([
+          'bash',
+          '/etc/calamares/scripts/detect-architecture',
+          '/tmp/pacman.target.conf',
+        ],);
+      },
+    },),
+    it({
       name: 'writes the kernel command line with the LUKS UUID before pacstrap runs the boot hooks',
       fn: async () => {
         const calls = await install(DESKTOP,);

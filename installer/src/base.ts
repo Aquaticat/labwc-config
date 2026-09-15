@@ -228,6 +228,51 @@ export function repositorySection(machine: Machine,): string {
   return `\n[${REPOSITORY_NAME}]\nSigLevel = Required\nServer = ${machine.repository.server}\n`;
 }
 
+/** Section headers CachyOS's architecture detection inserts; any one means detection already ran. */
+const OPTIMIZED_REPOSITORY_HEADERS = ['[cachyos-znver4]', '[cachyos-v4]', '[cachyos-v3]',] as const;
+
+/**
+ Checks whether pacman.conf already lists CPU-optimized CachyOS repositories.
+
+ Running the detection script twice would insert duplicate sections,
+ which pacman rejects.
+
+ @param text - pacman.conf content
+ @returns whether detection must be skipped
+ @example
+ ```ts
+ const skip = hasOptimizedRepositories(conf,);
+ ```
+ */
+export function hasOptimizedRepositories(text: string,): boolean {
+  const lines = new Set(text.split('\n',).map((line,) => line.trim()),);
+  return OPTIMIZED_REPOSITORY_HEADERS.some((header,) => lines.has(header,));
+}
+
+/**
+ Removes one repository section from pacman.conf.
+
+ @param text - pacman.conf content
+ @param name - section name without brackets
+ @returns content without that section, so appending it again cannot duplicate it
+ @example
+ ```ts
+ const cleaned = withoutSection({ text, name: 'labwc-config', },);
+ ```
+ */
+export function withoutSection({ text, name, }: { readonly text: string; readonly name: string; },): string {
+  const header = `[${name}]`;
+  const kept = text.split('\n',).reduce<{ readonly lines: readonly string[]; readonly skipping: boolean; }>(
+    (state, line,) => {
+      const trimmed = line.trim();
+      const skipping = trimmed === header || (state.skipping && !trimmed.startsWith('[',));
+      return { lines: skipping ? state.lines : [...state.lines, line,], skipping, };
+    },
+    { lines: [], skipping: false, },
+  );
+  return kept.lines.join('\n',);
+}
+
 /**
  Initializes pacman's keyring on the live system and trusts the session repository's key.
 
@@ -245,6 +290,11 @@ async function prepareKeyring({ machine, shell, }: { readonly machine: Machine; 
     argv: ['pacman', '--sync', '--refresh', '--noconfirm', '--needed', 'cachyos-keyring', 'archlinux-keyring',],
   },);
   await shell.run({ description: 'populate the pacman keyring', argv: ['pacman-key', '--populate',], },);
+  // The live ISO ships pacstrap, genfstab, and arch-chroot; an installed CachyOS used as the installer host does not.
+  await shell.run({
+    description: 'install pacstrap and arch-chroot',
+    argv: ['pacman', '--sync', '--noconfirm', '--needed', 'arch-install-scripts',],
+  },);
   await shell.run({
     description: 'add the session repository key',
     argv: ['pacman-key', '--add', machine.repository.publicKeyFile,],
@@ -319,15 +369,19 @@ export async function installBase({ machine, shell, luksUuid, }: {
   await prepareKeyring({ machine, shell, },);
 
   await shell.run({ description: 'copy the live pacman.conf', argv: ['cp', '/etc/pacman.conf', TARGET_PACMAN_CONF,], },);
-  await shell.run({
-    description: 'enable the CPU-optimized CachyOS repositories',
-    argv: ['bash', '/etc/calamares/scripts/detect-architecture', TARGET_PACMAN_CONF,],
-  },);
+  if (hasOptimizedRepositories(await shell.readFile(TARGET_PACMAN_CONF,),)) {
+    l.info('pacman.conf already lists CPU-optimized repositories',);
+  } else {
+    await shell.run({
+      description: 'enable the CPU-optimized CachyOS repositories',
+      argv: ['bash', '/etc/calamares/scripts/detect-architecture', TARGET_PACMAN_CONF,],
+    },);
+  }
   const pacmanConf = await shell.readFile(TARGET_PACMAN_CONF,);
   await shell.writeFile({
     description: 'target pacman.conf with the session repository',
     path: `${TARGET_ROOT}/etc/pacman.conf`,
-    content: `${pacmanConf}${repositorySection(machine,)}`,
+    content: `${withoutSection({ text: pacmanConf, name: REPOSITORY_NAME, },)}${repositorySection(machine,)}`,
     mode: 0o644,
   },);
   await shell.run({ description: 'create pacman.d', argv: ['mkdir', '--parents', `${TARGET_ROOT}/etc/pacman.d`,], },);
