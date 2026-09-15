@@ -1,0 +1,16 @@
+# PROTOTYPE: throwaway latency spike for a resident Slint layer-shell launcher. Not production code.
+[package]
+name = "prototype-slint-layer-launcher"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+slint = { version = "=1.17.1", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
+smithay-client-toolkit = { version = "=0.21.1", default-features = false, features = ["calloop", "xkbcommon"] }
+wayland-client = "0.31"
+calloop = { version = "0.14", features = ["signals"] }
+calloop-wayland-source = "0.4"
+
+[profile.release]
+debug = false
