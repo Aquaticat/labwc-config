@@ -81,6 +81,7 @@ await describe({
       fn: async () => {
         expect(() => parseWith({ timezone: '../../../etc/shadow', },)).toThrow(InvalidMachineError,);
         expect(() => parseWith({ timezone: '/etc/localtime', },)).toThrow(InvalidMachineError,);
+        expect(() => parseWith({ timezone: 'America/New_York\nEurope/Paris', },)).toThrow(InvalidMachineError,);
         expect(parseWith({ timezone: 'Etc/GMT+5', },).timezone,).toEqual('Etc/GMT+5',);
       },
     },),
