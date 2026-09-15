@@ -189,7 +189,8 @@ export function limineDefaults({ platform, commandLine, }: {
     // Under Hyper-V shim owns \EFI\BOOT\BOOTX64.EFI; on the desktop Limine itself is the fallback loader.
     `ENABLE_LIMINE_FALLBACK=${platform === 'physical' ? 'yes' : 'no'}`,
     'FIND_BOOTLOADERS=no',
-    'BOOT_ORDER="*, *fallback, Snapshots"',
+    // The main kernel boots by default; the wildcard alone sorted linux-cachyos-lts first on the rehearsal VM.
+    'BOOT_ORDER="linux-cachyos, *, *fallback, Snapshots"',
     // Every snapshot Snapper retains stays bootable: the limit equals Snapper's retention bound.
     `MAX_SNAPSHOT_ENTRIES=${SNAPSHOT_ENTRY_LIMIT}`,
     ...(platform === 'hyper-v' ? ['LIMINE_BINARY_PATH=/usr/local/share/limine/BOOTX64.EFI',] : []),

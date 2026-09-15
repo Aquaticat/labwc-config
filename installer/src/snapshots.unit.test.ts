@@ -91,6 +91,10 @@ await describe({
         expect(limineDefaults({ platform: 'physical', commandLine: 'rw', },),).toContain(
           `MAX_SNAPSHOT_ENTRIES=${SNAPSHOT_ENTRY_LIMIT}\n`,
         );
+        // The rehearsal VM defaulted to linux-cachyos-lts with the wildcard-only order.
+        expect(limineDefaults({ platform: 'physical', commandLine: 'rw', },),).toContain(
+          'BOOT_ORDER="linux-cachyos, *, *fallback, Snapshots"\n',
+        );
       },
     },),
     it({
